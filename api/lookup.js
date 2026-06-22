@@ -48,7 +48,9 @@ export default async function handler(req, res) {
       }),
     });
     if (!r.ok) {
-      res.status(502).json({ error: "Lookup service error." });
+      const detail = await r.text().catch(() => "");
+      console.error("Anthropic error", r.status, detail);
+      res.status(502).json({ error: "Lookup service error.", upstreamStatus: r.status, detail: detail.slice(0, 500) });
       return;
     }
     const data = await r.json();
@@ -74,7 +76,8 @@ export default async function handler(req, res) {
       ratings,
     });
   } catch (err) {
-    res.status(502).json({ error: "Lookup failed." });
+    console.error("Lookup failed", err && err.message);
+    res.status(502).json({ error: "Lookup failed.", detail: (err && err.message) ? String(err.message).slice(0, 500) : "unknown" });
   }
 }
 
