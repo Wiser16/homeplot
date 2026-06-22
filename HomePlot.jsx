@@ -863,10 +863,19 @@ function AddModal({ initial, budget, onClose, onSave }) {
       });
       if (!resp.ok) throw new Error("unreachable");
       const parsed = await resp.json();
-      // Accept only an exact, correctly-spelled match. If the model recognized a
-      // different name (a corrected typo), reject it and offer the suggestion.
-      const typed = town.trim().toLowerCase();
-      const matched = (parsed && parsed.matchedName ? String(parsed.matchedName) : "").trim().toLowerCase();
+      // Accept a match when the model confirms a real place whose name lines up
+      // with what was typed. We compare just the town portion (the model often
+      // returns "Town, ST"), ignoring case, punctuation, and the state suffix,
+      // so normal entries pass while genuine typos are still caught.
+      const norm = (s) =>
+        String(s || "")
+          .toLowerCase()
+          .split(",")[0]              // drop ", ST" if the model included it
+          .replace(/[^a-z0-9 ]/g, "") // ignore punctuation like periods/apostrophes
+          .replace(/\s+/g, " ")
+          .trim();
+      const typed = norm(town);
+      const matched = norm(parsed && parsed.matchedName);
       const ok = parsed && parsed.found === true && (!matched || matched === typed);
       if (!ok) {
         if (parsed && parsed.matchedName && matched !== typed) setSuggest(String(parsed.matchedName));
