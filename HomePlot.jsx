@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Plus, X, Crown, Trash2, Pencil, SlidersHorizontal,
   MapPin, RotateCcw, Sparkles, ChevronDown, ChevronUp, Wallet, Loader2,
-  List, Table, Trophy, ExternalLink, Moon, Sun, Check, Users, Info
+  List, Table, Trophy, ExternalLink, Moon, Sun, Check, Users, Info, Activity
 } from "lucide-react";
 
 /* ----------------------------------------------------------------
@@ -272,7 +272,24 @@ export default function NeighborhoodFit() {
   const [credit, setCredit] = useState(saved?.credit ?? "760");
   const [baseRate, setBaseRate] = useState(saved?.baseRate ?? DEFAULT_BASE_RATE);
   const [term, setTerm] = useState(saved?.term ?? 30);
+  const [rateInfo, setRateInfo] = useState(null); // { rate30, rate15, asOf, source }
   const rate = useMemo(() => +(baseRate + creditDelta(credit)).toFixed(3), [baseRate, credit]);
+
+  // Pull the current 30-year average from Freddie Mac (via our backend) once on
+  // load, and use it as the base rate unless the person has set their own.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/rate")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d || !d.rate30) return;
+        setRateInfo(d);
+        // Only override when the user hasn't customized the base rate themselves.
+        if (saved?.baseRate == null) setBaseRate(d.rate30);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // Save durable user data whenever it changes (no-op where storage is blocked).
   useEffect(() => {
@@ -355,12 +372,26 @@ export default function NeighborhoodFit() {
     ];
     setHoods(picks.map((p, i) => {
       const e = LOCAL_ESTIMATES[p.town.toLowerCase()];
-      return { id: i + 1, town: p.town, state: "CA", name: `${p.town}, CA`, price: e.price, miles: p.miles, note: e.note, ratings: mkRatings(e.r), source: "table" };
+      return { id: i + 1, town: p.town, state: "CA", name: `${p.town}, CA`, price: e.price, miles: p.miles, note: e.note, ratings: mkRatings(e.r), source: "table", coords: TOWN_COORDS[p.town.toLowerCase()] || null };
     }));
   };
 
   const resetWeights = () => { setPersona("resident"); setWeights({ ...RESIDENT_WEIGHTS }); };
   const applyPreset = (p) => { setPersona(p.key); setWeights({ ...p.weights }); };
+
+  // Clear the whole saved session and return to a clean slate. Confirms first so
+  // it can't wipe someone's work by accident.
+  const resetAll = () => {
+    if (typeof window !== "undefined" && window.confirm && !window.confirm("Clear all your places and settings and start fresh? This can't be undone.")) return;
+    try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
+    setHoods([]);
+    setBudget("1000000");
+    setWorkZip(""); setWorkCoords(null);
+    setWeights({ ...RESIDENT_WEIGHTS }); setPersona("resident");
+    setDp(20); setCredit("760");
+    setBaseRate(rateInfo?.rate30 ?? DEFAULT_BASE_RATE); setTerm(30);
+    setView("ranked"); setExpanded(null);
+  };
 
   return (
     <div style={{ ...(dark ? DARK_VARS : LIGHT_VARS), background: PAPER, minHeight: "100vh", color: INK, fontFamily: "Inter, system-ui, sans-serif" }}>
@@ -425,6 +456,11 @@ export default function NeighborhoodFit() {
             <button className="nf-btn" onClick={() => setShowMortgage(true)} style={ghostBtn}>
               <Wallet size={16} /> Mortgage
             </button>
+            {(hoods.length > 0 || workZip || budget !== "1000000") && (
+              <button className="nf-btn" onClick={resetAll} style={ghostBtn} title="Clear everything and start fresh">
+                <RotateCcw size={16} /> Reset
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -535,7 +571,7 @@ export default function NeighborhoodFit() {
       {showAdd && <AddModal initial={editing} budget={budget}
         onClose={() => { setShowAdd(false); setEditing(null); }} onSave={upsert} />}
       {showWeights && <WeightsModal weights={weights} setWeights={setWeights} persona={persona} applyPreset={applyPreset} onReset={resetWeights} onClose={() => setShowWeights(false)} />}
-      {showMortgage && <MortgageModal dp={dp} setDp={setDp} credit={credit} setCredit={setCredit} baseRate={baseRate} setBaseRate={setBaseRate} term={term} setTerm={setTerm} rate={rate} budget={budget} onClose={() => setShowMortgage(false)} />}
+      {showMortgage && <MortgageModal dp={dp} setDp={setDp} credit={credit} setCredit={setCredit} baseRate={baseRate} setBaseRate={setBaseRate} term={term} setTerm={setTerm} rate={rate} budget={budget} rateInfo={rateInfo} onClose={() => setShowMortgage(false)} />}
     </div>
   );
 }
@@ -545,6 +581,21 @@ function HoodCard({ h, rank, expanded, onToggle, onEdit, onDelete }) {
   const leader = rank === 0;
   const ringColor = h.score >= 75 ? TEAL : h.score >= 50 ? GOLD : CORAL;
   const tenure = tenureFor(h.town || h.name);
+  const coords = h.coords || TOWN_COORDS[NORM(h.town || h.name)] || null;
+  const [quake, setQuake] = useState(null); // { count, maxMag, years, radiusKm } | "none"
+
+  // Pull real USGS historical seismicity near this place (display only, never
+  // scored). Fails silently so the card never depends on it.
+  useEffect(() => {
+    if (!coords) return;
+    let cancelled = false;
+    fetch(`/api/quake?lat=${coords[0]}&lng=${coords[1]}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d && d.available) setQuake(d); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [coords && coords[0], coords && coords[1]]);
+
   const R = 30, C = 2 * Math.PI * R, off = C * (1 - h.score / 100);
   return (
     <div className="nf-card nf-pop" style={{
@@ -591,6 +642,20 @@ function HoodCard({ h, rank, expanded, onToggle, onEdit, onDelete }) {
               <Users size={13} />
               <span><b style={{ color: INK }}>{tenure.owner}%</b> owner · <b style={{ color: INK }}>{tenure.renter}%</b> renter</span>
               <span style={{ opacity: .7 }}>· Census ACS</span>
+            </div>
+          )}
+          {quake && quake.count > 0 && (
+            <div style={{ fontSize: 12.5, color: SLATE, marginTop: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <Activity size={13} />
+              <span><b style={{ color: INK }}>{quake.count}</b> quakes M{quake.minMag}+ within {quake.radiusKm}km{quake.maxMag ? <>, largest <b style={{ color: INK }}>M{quake.maxMag}</b></> : null}</span>
+              <span style={{ opacity: .7 }}>· USGS, {quake.years}yr history</span>
+            </div>
+          )}
+          {quake && quake.count === 0 && (
+            <div style={{ fontSize: 12.5, color: SLATE, marginTop: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <Activity size={13} />
+              <span>No significant quakes within {quake.radiusKm}km</span>
+              <span style={{ opacity: .7 }}>· USGS, {quake.years}yr history</span>
             </div>
           )}
           <div style={{ display: "flex", gap: 16, marginTop: 6, flexWrap: "wrap" }}>
@@ -825,6 +890,7 @@ function AddModal({ initial, budget, onClose, onSave }) {
   const [miles, setMiles] = useState(initial?.miles != null ? String(initial.miles) : "");
   const [note, setNote] = useState(initial?.note || "");
   const [ratings, setRatings] = useState(initial?.ratings || RATED.reduce((a, d) => ({ ...a, [d.key]: 5 }), {}));
+  const [coords, setCoords] = useState(initial?.coords || TOWN_COORDS[NORM(initial?.town || "")] || null);
   const [aiState, setAiState] = useState("idle"); // idle | loading | estimated | aiestimated | notfound | unreachable
   const [source, setSource] = useState(initial?.source || "user"); // user | table | ai
   const [suggest, setSuggest] = useState("");
@@ -845,6 +911,7 @@ function AddModal({ initial, budget, onClose, onSave }) {
       setPrice(String(local.estPrice));
       setNote((n) => n || local.note);
       setRatings((r) => ({ ...r, ...local.ratings }));
+      setCoords(TOWN_COORDS[NORM(town)] || null);
       setSource("table");
       setAiState("estimated");
       return;
@@ -885,6 +952,7 @@ function AddModal({ initial, budget, onClose, onSave }) {
       if (parsed.estPrice) setPrice(String(Math.round(parsed.estPrice)));
       if (parsed.note) setNote((n) => n || parsed.note);
       setRatings((r) => ({ ...r, ...(parsed.ratings || {}) }));
+      if (parsed.lat != null && parsed.lng != null) setCoords([Number(parsed.lat), Number(parsed.lng)]);
       setSource("ai");
       setAiState("aiestimated");
     } catch (err) {
@@ -980,7 +1048,7 @@ function AddModal({ initial, budget, onClose, onSave }) {
         <div style={{ padding: 16, borderTop: `1px solid ${LINE}`, display: "flex", gap: 10 }}>
           <button onClick={onClose} className="nf-btn" style={{ flex: 1, background: SURF, border: `1px solid ${LINE}`, borderRadius: 11, padding: 12, fontWeight: 600, color: INK, fontFamily: "inherit", fontSize: 14.5 }}>Cancel</button>
           <button disabled={!valid} className="nf-btn"
-            onClick={() => onSave({ id: initial?.id, town: town.trim(), state: stateCode, name: `${town.trim()}, ${stateCode}`, price: Number(price) || 0, miles: miles === "" ? null : Number(miles), note: note.trim(), ratings, source })}
+            onClick={() => onSave({ id: initial?.id, town: town.trim(), state: stateCode, name: `${town.trim()}, ${stateCode}`, price: Number(price) || 0, miles: miles === "" ? null : Number(miles), note: note.trim(), ratings, source, coords: coords || TOWN_COORDS[NORM(town)] || null })}
             style={{ flex: 2, background: valid ? CORAL : "#f0c4bf", border: "none", borderRadius: 11, padding: 12, fontWeight: 700, color: "#fff", fontFamily: "inherit", fontSize: 14.5, cursor: valid ? "pointer" : "default" }}>
             {initial ? "Save changes" : "Add place"}
           </button>
@@ -1035,7 +1103,7 @@ function WeightsModal({ weights, setWeights, persona, applyPreset, onReset, onCl
 }
 
 /* ---------------- Mortgage ---------------- */
-function MortgageModal({ dp, setDp, credit, setCredit, baseRate, setBaseRate, term, setTerm, rate, budget, onClose }) {
+function MortgageModal({ dp, setDp, credit, setCredit, baseRate, setBaseRate, term, setTerm, rate, budget, rateInfo, onClose }) {
   const [price, setPrice] = useState(String(budget || 1000000));
   const rows = [
     { label: "Down payment", value: dp, set: setDp, suffix: "%", min: 0, max: 50, step: 1 },
@@ -1057,6 +1125,11 @@ function MortgageModal({ dp, setDp, credit, setCredit, baseRate, setBaseRate, te
         <ModalHead title="Mortgage estimate" onClose={onClose} />
         <div style={{ padding: "4px 20px 8px" }}>
           <p style={{ fontSize: 13, color: SLATE, marginTop: 0 }}>Estimates a monthly payment from your credit, down payment, and term, plus a 1.25% property-tax estimate. Under 20% down adds PMI. The same assumptions drive each card's monthly figure.</p>
+          {rateInfo && rateInfo.source === "freddiemac-pmms" && (
+            <p style={{ fontSize: 12.5, color: TEAL, fontWeight: 600, marginTop: 0 }}>
+              Base rate is live from Freddie Mac: {rateInfo.rate30}% for a 30-year fixed{rateInfo.asOf ? ` (as of ${rateInfo.asOf})` : ""}. Your credit tier adjusts from there.
+            </p>
+          )}
         </div>
         <div style={{ padding: "0 20px 12px", display: "grid", gap: 16 }}>
           <div>
