@@ -554,9 +554,9 @@ export default function NeighborhoodFit() {
               </div>
             )}
             {scored.some((h) => h.source === "ai" || h.source === "table") && (
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 7, marginTop: 14, fontSize: 12, color: SLATE }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 7, marginTop: 14, fontSize: 12, color: SLATE, lineHeight: 1.5 }}>
                 <span style={{ color: GOLD, fontWeight: 800 }}>*</span>
-                <span>Estimated, not verified. These figures were filled by a lookup, not confirmed against official records. Open Edit to set your own numbers. Census owner/renter shares are real ACS data.</span>
+                <span>Scores marked with an asterisk are estimates, filled by a lookup, not confirmed against official records. Open Edit on any place to set your own numbers and the asterisk clears. The "Local data" section under each breakdown is real and cited: USGS earthquakes, FEMA flood, NOAA weather, and Census figures come straight from those official sources.</span>
               </div>
             )}
           </>
@@ -664,6 +664,9 @@ function HoodCard({ h, rank, expanded, onToggle, onEdit, onDelete }) {
               )}
             </div>
           )}
+          {expanded && (quake || flood || weather || air) && (
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px dashed ${LINE}` }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: .5, color: SLATE, opacity: .7, marginBottom: 2 }}>LOCAL DATA · OFFICIAL SOURCES</div>
           {quake && quake.count > 0 && (
             <div style={{ fontSize: 12.5, color: SLATE, marginTop: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <Activity size={13} />
@@ -699,14 +702,12 @@ function HoodCard({ h, rank, expanded, onToggle, onEdit, onDelete }) {
               <span style={{ opacity: .7 }}>· {air.source}</span>
             </div>
           )}
+            </div>
+          )}
           <div style={{ display: "flex", gap: 16, marginTop: 6, flexWrap: "wrap" }}>
             <a className="nf-link" target="_blank" rel="noopener noreferrer"
               href={`https://www.zillow.com/homes/${encodeURIComponent(((h.town && h.state) ? `${h.town} ${h.state}` : h.name).trim().replace(/\s+/g, "-"))}_rb/`}>
-              Zillow <ExternalLink size={12} />
-            </a>
-            <a className="nf-link" target="_blank" rel="noopener noreferrer"
-              href={`https://www.google.com/search?q=${encodeURIComponent((((h.town && h.state) ? `${h.town} ${h.state}` : h.name)) + " homes for sale site:redfin.com")}`}>
-              Redfin <ExternalLink size={12} />
+              View listings <ExternalLink size={12} />
             </a>
           </div>
         </div>
