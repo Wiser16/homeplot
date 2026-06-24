@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Plus, X, Crown, Trash2, Pencil, SlidersHorizontal,
   MapPin, RotateCcw, Sparkles, ChevronDown, ChevronUp, Wallet, Loader2,
-  List, Table, Trophy, ExternalLink, Moon, Sun, Check, Users, Info, Activity
+  List, Table, Trophy, ExternalLink, Moon, Sun, Check, Users, Info, Activity, Droplets, CloudSun, Wind
 } from "lucide-react";
 
 /* ----------------------------------------------------------------
@@ -582,17 +582,26 @@ function HoodCard({ h, rank, expanded, onToggle, onEdit, onDelete }) {
   const ringColor = h.score >= 75 ? TEAL : h.score >= 50 ? GOLD : CORAL;
   const tenure = tenureFor(h.town || h.name);
   const coords = h.coords || TOWN_COORDS[NORM(h.town || h.name)] || null;
-  const [quake, setQuake] = useState(null); // { count, maxMag, years, radiusKm } | "none"
+  const [quake, setQuake] = useState(null);
+  const [flood, setFlood] = useState(null);
+  const [weather, setWeather] = useState(null);
+  const [census, setCensus] = useState(null);
+  const [air, setAir] = useState(null);
 
-  // Pull real USGS historical seismicity near this place (display only, never
-  // scored). Fails silently so the card never depends on it.
+  // Pull real, official, display-only data near this place (never scored). Each
+  // fails silently and independently, so the card never depends on any of them.
   useEffect(() => {
     if (!coords) return;
     let cancelled = false;
-    fetch(`/api/quake?lat=${coords[0]}&lng=${coords[1]}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (!cancelled && d && d.available) setQuake(d); })
-      .catch(() => {});
+    const q = `lat=${coords[0]}&lng=${coords[1]}`;
+    const grab = (path, set, ok = (d) => d && d.available) =>
+      fetch(`${path}?${q}`).then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (!cancelled && ok(d)) set(d); }).catch(() => {});
+    grab("/api/quake", setQuake);
+    grab("/api/flood", setFlood);
+    grab("/api/weather", setWeather);
+    grab("/api/census", setCensus);
+    grab("/api/air", setAir);
     return () => { cancelled = true; };
   }, [coords && coords[0], coords && coords[1]]);
 
@@ -637,11 +646,22 @@ function HoodCard({ h, rank, expanded, onToggle, onEdit, onDelete }) {
               <span><b style={{ color: INK }}>{h.effMiles} mi</b> to work{h.commuteAuto ? <span style={{ opacity: .7 }}> · straight-line est.<span title="Estimated, not verified" style={{ color: GOLD, fontWeight: 800 }}>*</span></span> : <span style={{ opacity: .7 }}> · you entered this</span>}</span>
             </div>
           )}
-          {tenure && (
+          {(census || tenure) && (
             <div style={{ fontSize: 12.5, color: SLATE, marginTop: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <Users size={13} />
-              <span><b style={{ color: INK }}>{tenure.owner}%</b> owner · <b style={{ color: INK }}>{tenure.renter}%</b> renter</span>
-              <span style={{ opacity: .7 }}>· Census ACS</span>
+              {census ? (
+                <>
+                  {census.ownerPct != null && <span><b style={{ color: INK }}>{census.ownerPct}%</b> owner · <b style={{ color: INK }}>{census.renterPct}%</b> renter</span>}
+                  {census.medianIncome != null && <span>· median income <b style={{ color: INK }}>${census.medianIncome.toLocaleString()}</b></span>}
+                  {census.medianAge != null && <span>· median age <b style={{ color: INK }}>{census.medianAge}</b></span>}
+                  <span style={{ opacity: .7 }}>· {census.source}</span>
+                </>
+              ) : (
+                <>
+                  <span><b style={{ color: INK }}>{tenure.owner}%</b> owner · <b style={{ color: INK }}>{tenure.renter}%</b> renter</span>
+                  <span style={{ opacity: .7 }}>· Census ACS<span title="Estimated, not verified" style={{ color: GOLD, fontWeight: 800 }}>*</span></span>
+                </>
+              )}
             </div>
           )}
           {quake && quake.count > 0 && (
@@ -656,6 +676,27 @@ function HoodCard({ h, rank, expanded, onToggle, onEdit, onDelete }) {
               <Activity size={13} />
               <span>No significant quakes within {quake.radiusKm}km</span>
               <span style={{ opacity: .7 }}>· USGS, {quake.years}yr history</span>
+            </div>
+          )}
+          {flood && (
+            <div style={{ fontSize: 12.5, color: SLATE, marginTop: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <Droplets size={13} color={flood.highRisk ? CORAL : undefined} />
+              <span style={{ color: flood.highRisk ? CORAL : SLATE }}>{flood.label}</span>
+              <span style={{ opacity: .7 }}>· {flood.source}</span>
+            </div>
+          )}
+          {weather && weather.high != null && (
+            <div style={{ fontSize: 12.5, color: SLATE, marginTop: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <CloudSun size={13} />
+              <span>{weather.label}: <b style={{ color: INK }}>{weather.high}°{weather.unit}</b>{weather.low != null ? ` / ${weather.low}°` : ""}{weather.summary ? `, ${weather.summary}` : ""}</span>
+              <span style={{ opacity: .7 }}>· {weather.source} forecast</span>
+            </div>
+          )}
+          {air && air.aqi != null && (
+            <div style={{ fontSize: 12.5, color: SLATE, marginTop: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <Wind size={13} />
+              <span>Air quality <b style={{ color: INK }}>{air.aqi}</b>{air.category ? ` (${air.category})` : ""}</span>
+              <span style={{ opacity: .7 }}>· {air.source}</span>
             </div>
           )}
           <div style={{ display: "flex", gap: 16, marginTop: 6, flexWrap: "wrap" }}>
