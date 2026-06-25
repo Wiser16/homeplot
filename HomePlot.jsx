@@ -416,7 +416,7 @@ export default function NeighborhoodFit() {
         .nf-rise { animation: nfrise .4s cubic-bezier(.2,.8,.2,1) both; }
         .nf-reveal { animation: nfreveal .3s ease both; }
         .nf-spin { animation: nfspin .9s linear infinite; }
-        .nf-cards { display: grid; grid-template-columns: 1fr; gap: 14px; align-items: start; }
+        .nf-cards { display: grid; grid-template-columns: 1fr; gap: 14px; align-items: stretch; }
         /* Use the extra width on landscape phones, tablets, and laptops. */
         @media (min-width: 760px) { .nf-cards { grid-template-columns: 1fr 1fr; } }
         @media (min-width: 1100px) { .nf-cards { grid-template-columns: 1fr 1fr 1fr; } }
@@ -552,7 +552,7 @@ export default function NeighborhoodFit() {
             ) : (
               <div className="nf-cards">
                 {scored.map((h, i) => (
-                  <div key={h.id} className="nf-rise" style={{ animationDelay: `${Math.min(i * 60, 480)}ms` }}>
+                  <div key={h.id} className="nf-rise" style={{ animationDelay: `${Math.min(i * 60, 480)}ms`, height: "100%" }}>
                     <HoodCard h={h} rank={i} dp={dp} rate={rate} term={term}
                       expanded={expanded === h.id}
                       onToggle={() => setExpanded(expanded === h.id ? null : h.id)}
@@ -628,6 +628,7 @@ function HoodCard({ h, rank, dp, rate, term, expanded, onToggle, onEdit, onDelet
       background: SURF, border: leader ? `2px solid ${GOLD}` : `1px solid ${LINE}`,
       borderRadius: 16, padding: 16,
       boxShadow: leader ? "0 8px 24px rgba(242,180,65,.22)" : "0 1px 2px rgba(0,0,0,.03)",
+      display: "flex", flexDirection: "column", height: "100%",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
         <div style={{ position: "relative", width: 76, height: 76, flexShrink: 0 }}>
@@ -663,6 +664,9 @@ function HoodCard({ h, rank, dp, rate, term, expanded, onToggle, onEdit, onDelet
               <span><b style={{ color: INK }}>{h.effMiles} mi</b> to work{h.commuteAuto ? <span style={{ opacity: .7 }}> · straight-line est.<span title="Estimated, not verified" style={{ color: GOLD, fontWeight: 800 }}>*</span></span> : <span style={{ opacity: .7 }}> · you entered this</span>}</span>
             </div>
           )}
+          {expanded && (census || tenure || quake || flood || weather || air) && (
+            <div className="nf-reveal" style={{ marginTop: 8, paddingTop: 8, borderTop: `1px dashed ${LINE}` }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: .5, color: SLATE, opacity: .7, marginBottom: 2 }}>LOCAL DATA · OFFICIAL SOURCES</div>
           {(census || tenure) && (
             <div style={{ fontSize: 12.5, color: SLATE, marginTop: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <Users size={13} />
@@ -682,9 +686,6 @@ function HoodCard({ h, rank, dp, rate, term, expanded, onToggle, onEdit, onDelet
               )}
             </div>
           )}
-          {expanded && (quake || flood || weather || air) && (
-            <div className="nf-reveal" style={{ marginTop: 8, paddingTop: 8, borderTop: `1px dashed ${LINE}` }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: .5, color: SLATE, opacity: .7, marginBottom: 2 }}>LOCAL DATA · OFFICIAL SOURCES</div>
           {quake && quake.count > 0 && (
             <div style={{ fontSize: 12.5, color: SLATE, marginTop: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <Activity size={13} />
@@ -734,7 +735,7 @@ function HoodCard({ h, rank, dp, rate, term, expanded, onToggle, onEdit, onDelet
           <button className="nf-btn" onClick={onDelete} title="Remove" style={iconBtn}><Trash2 size={15} /></button>
         </div>
       </div>
-      <button onClick={onToggle} style={{ marginTop: 12, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: "none", color: SLATE, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+      <button onClick={onToggle} style={{ marginTop: "auto", paddingTop: 12, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: "none", color: SLATE, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
         {expanded ? "Hide breakdown" : "See breakdown"} {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
       </button>
       {expanded && (
