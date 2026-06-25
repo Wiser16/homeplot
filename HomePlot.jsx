@@ -37,8 +37,8 @@ const LIGHT_VARS = {
   "--text-dim": "#4A5663", "--line": "#E3DECF", "--brand": "#16263F",
 };
 const DARK_VARS = {
-  "--bg": "#0F1722", "--surface": "#1B2533", "--text": "#ECEFF3",
-  "--text-dim": "#9AA6B5", "--line": "#2A3645", "--brand": "#33415A",
+  "--bg": "#0F1722", "--surface": "#212E40", "--text": "#ECEFF3",
+  "--text-dim": "#9AA6B5", "--line": "#36465A", "--brand": "#33415A",
 };
 
 // Mirrors WEIGHTS_INIT from the original (×20 to fit 0–100 sliders),
@@ -404,17 +404,23 @@ export default function NeighborhoodFit() {
         .nf-slider::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: ${BRAND}; cursor: pointer; border: 3px solid ${PAPER}; }
         .nf-btn { transition: transform .12s ease, box-shadow .12s ease, background .12s ease; cursor: pointer; }
         .nf-btn:hover { transform: translateY(-1px); }
-        .nf-card { transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s ease; }
-        .nf-ring { transition: stroke-dashoffset .6s cubic-bezier(.2,.8,.2,1); }
+        .nf-btn:active { transform: translateY(0) scale(.98); }
+        .nf-card { transition: transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s ease, border-color .2s ease; }
+        .nf-card:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(22,38,63,.10); }
+        .nf-ring { transition: stroke-dashoffset .7s cubic-bezier(.2,.8,.2,1); }
         @keyframes nfpop { from { transform: scale(.96); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+        @keyframes nfrise { from { transform: translateY(10px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+        @keyframes nfreveal { from { opacity: 0; transform: translateY(-4px) } to { opacity: 1; transform: translateY(0) } }
         @keyframes nfspin { to { transform: rotate(360deg) } }
         .nf-pop { animation: nfpop .25s ease; }
+        .nf-rise { animation: nfrise .4s cubic-bezier(.2,.8,.2,1) both; }
+        .nf-reveal { animation: nfreveal .3s ease both; }
         .nf-spin { animation: nfspin .9s linear infinite; }
         .nf-cards { display: grid; grid-template-columns: 1fr; gap: 14px; align-items: start; }
         /* Use the extra width on landscape phones, tablets, and laptops. */
         @media (min-width: 760px) { .nf-cards { grid-template-columns: 1fr 1fr; } }
         @media (min-width: 1100px) { .nf-cards { grid-template-columns: 1fr 1fr 1fr; } }
-        @media (prefers-reduced-motion: reduce) { .nf-ring,.nf-card,.nf-btn{transition:none!important} .nf-pop,.nf-spin{animation:none!important} }
+        @media (prefers-reduced-motion: reduce) { .nf-ring,.nf-card,.nf-btn{transition:none!important} .nf-pop,.nf-spin,.nf-rise,.nf-reveal{animation:none!important} }
         @keyframes nffall { 0% { transform: translateY(-12vh) rotate(0deg); opacity: 1 } 100% { transform: translateY(112vh) rotate(560deg); opacity: 0 } }
         .nf-confetti { position: fixed; inset: 0; pointer-events: none; z-index: 60; overflow: hidden; }
         .nf-confetti i { position: absolute; top: 0; width: 9px; height: 14px; border-radius: 2px; animation: nffall 1.5s cubic-bezier(.3,.7,.4,1) forwards; }
@@ -546,11 +552,13 @@ export default function NeighborhoodFit() {
             ) : (
               <div className="nf-cards">
                 {scored.map((h, i) => (
-                  <HoodCard key={h.id} h={h} rank={i} dp={dp} rate={rate} term={term}
-                    expanded={expanded === h.id}
-                    onToggle={() => setExpanded(expanded === h.id ? null : h.id)}
-                    onEdit={() => { setEditing(h); setShowAdd(true); }}
-                    onDelete={() => setHoods((p) => p.filter((x) => x.id !== h.id))} />
+                  <div key={h.id} className="nf-rise" style={{ animationDelay: `${Math.min(i * 60, 480)}ms` }}>
+                    <HoodCard h={h} rank={i} dp={dp} rate={rate} term={term}
+                      expanded={expanded === h.id}
+                      onToggle={() => setExpanded(expanded === h.id ? null : h.id)}
+                      onEdit={() => { setEditing(h); setShowAdd(true); }}
+                      onDelete={() => setHoods((p) => p.filter((x) => x.id !== h.id))} />
+                  </div>
                 ))}
               </div>
             )}
@@ -616,7 +624,7 @@ function HoodCard({ h, rank, dp, rate, term, expanded, onToggle, onEdit, onDelet
     : null;
   const shownMonthly = monthlyReal != null ? monthlyReal : h.monthly;
   return (
-    <div className="nf-card nf-pop" style={{
+    <div className="nf-card" style={{
       background: SURF, border: leader ? `2px solid ${GOLD}` : `1px solid ${LINE}`,
       borderRadius: 16, padding: 16,
       boxShadow: leader ? "0 8px 24px rgba(242,180,65,.22)" : "0 1px 2px rgba(0,0,0,.03)",
@@ -675,7 +683,7 @@ function HoodCard({ h, rank, dp, rate, term, expanded, onToggle, onEdit, onDelet
             </div>
           )}
           {expanded && (quake || flood || weather || air) && (
-            <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px dashed ${LINE}` }}>
+            <div className="nf-reveal" style={{ marginTop: 8, paddingTop: 8, borderTop: `1px dashed ${LINE}` }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: .5, color: SLATE, opacity: .7, marginBottom: 2 }}>LOCAL DATA · OFFICIAL SOURCES</div>
           {quake && quake.count > 0 && (
             <div style={{ fontSize: 12.5, color: SLATE, marginTop: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -730,7 +738,7 @@ function HoodCard({ h, rank, dp, rate, term, expanded, onToggle, onEdit, onDelet
         {expanded ? "Hide breakdown" : "See breakdown"} {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
       </button>
       {expanded && (
-        <div style={{ marginTop: 10, paddingTop: 12, borderTop: `1px solid ${LINE}`, display: "grid", gap: 9 }}>
+        <div className="nf-reveal" style={{ marginTop: 10, paddingTop: 12, borderTop: `1px solid ${LINE}`, display: "grid", gap: 9 }}>
           {DIMENSIONS.map((d) => {
             const v = h.dimScores[d.key], col = v >= 75 ? TEAL : v >= 50 ? GOLD : CORAL;
             const star = (h.source === "ai" || h.source === "table") && d.key !== "commute";
