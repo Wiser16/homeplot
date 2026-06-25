@@ -891,7 +891,7 @@ function CompareView({ scored }) {
                       <Crown size={11} /> Best
                     </div>
                   )}
-                  <div className="nf-display" style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.15 }}>{h.name}{(h.source === "ai" || h.source === "table") && <span title="Estimated, not verified" style={{ color: GOLD, fontWeight: 800 }}>*</span>}</div>
+                  <div className="nf-display" style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.15, color: i === 0 ? "#16263F" : "inherit" }}>{h.name}{(h.source === "ai" || h.source === "table") && <span title="Estimated, not verified" style={{ color: i === 0 ? "#b8860b" : GOLD, fontWeight: 800 }}>*</span>}</div>
                 </th>
               ))}
             </tr>
