@@ -538,9 +538,9 @@ export default function NeighborhoodFit() {
             {scored.length >= 2 && (
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
                 <div style={{ display: "inline-flex", background: SURF, border: `1px solid ${LINE}`, borderRadius: 11, padding: 3, gap: 3 }}>
-                  {[["ranked", "Ranked", List], ["compare", "Side by side", Table]].map(([key, label, Icon]) => (
+                  {[["ranked", "Ranked", List], ["compare", "Compare Side by Side", Table]].map(([key, label, Icon]) => (
                     <button key={key} onClick={() => setView(key)} className="nf-btn"
-                      style={{ display: "flex", alignItems: "center", gap: 6, border: "none", borderRadius: 8, padding: "8px 18px", fontWeight: 600, fontSize: 13.5, fontFamily: "inherit", cursor: "pointer", background: view === key ? BRAND : "transparent", color: view === key ? "#fff" : SLATE }}>
+                      style={{ display: "flex", alignItems: "center", gap: 6, border: "none", borderRadius: 8, padding: "8px 18px", fontWeight: 600, fontSize: 13.5, fontFamily: "inherit", cursor: "pointer", background: view === key ? TEAL : "transparent", color: view === key ? "#fff" : SLATE }}>
                       <Icon size={15} /> {label}
                     </button>
                   ))}
