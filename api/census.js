@@ -37,8 +37,9 @@ export default async function handler(req, res) {
 
     // Step 2: pull a few clean Data Profile variables for that place.
     // DP04_0046PE owner-occupied %, DP03_0062E median household income,
-    // DP05_0018E median age, DP02_0068PE bachelor's-or-higher %.
-    const vars = "NAME,DP04_0046PE,DP03_0062E,DP05_0018E,DP02_0068PE";
+    // DP05_0018E median age, DP02_0068PE bachelor's-or-higher %,
+    // DP04_0089E median home value, DP04_0101E median real-estate taxes paid.
+    const vars = "NAME,DP04_0046PE,DP03_0062E,DP05_0018E,DP02_0068PE,DP04_0089E,DP04_0101E";
     const acsUrl =
       `https://api.census.gov/data/2023/acs/acs5/profile?get=${vars}` +
       `&for=place:${placeFips}&in=state:${stateFips}&key=${key}`;
@@ -52,6 +53,10 @@ export default async function handler(req, res) {
     const income = num(row[2]);
     const medianAge = num(row[3]);
     const bachelorsPct = num(row[4]);
+    const homeValue = num(row[5]);
+    const taxPaid = num(row[6]);
+    // Effective property-tax rate = median taxes paid / median home value.
+    const taxRate = homeValue && taxPaid ? +((taxPaid / homeValue) * 100).toFixed(2) : null;
 
     res.status(200).json({
       available: true,
@@ -61,6 +66,9 @@ export default async function handler(req, res) {
       medianIncome: income != null ? Math.round(income) : null,
       medianAge: medianAge != null ? +medianAge.toFixed(1) : null,
       bachelorsPct: bachelorsPct != null ? Math.round(bachelorsPct) : null,
+      medianHomeValue: homeValue != null ? Math.round(homeValue) : null,
+      medianTaxPaid: taxPaid != null ? Math.round(taxPaid) : null,
+      taxRate, // effective % of value, or null when unavailable
       source: "U.S. Census ACS 5-year",
     });
   } catch (err) {
