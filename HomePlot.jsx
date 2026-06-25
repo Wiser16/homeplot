@@ -497,9 +497,10 @@ export default function NeighborhoodFit() {
             <div style={{ width: 56, height: 56, borderRadius: 16, background: PAPER, display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
               <MapPin size={26} color={CORAL} />
             </div>
-            <h2 className="nf-display" style={{ fontSize: 24, fontWeight: 800, margin: "0 0 6px" }}>Add your first place</h2>
-            <p style={{ color: SLATE, maxWidth: 440, margin: "0 auto 18px", fontSize: 14.5, lineHeight: 1.55 }}>
-              Drop in a neighborhood or town you're weighing. Give it a quick gut-check, or let AI fill it in. It starts ranking against the rest right away.
+            <h2 className="nf-display" style={{ fontSize: 26, fontWeight: 800, margin: "0 0 4px" }}>Plot Your Perfect Neighborhood</h2>
+            <p className="nf-display" style={{ fontSize: 15, fontWeight: 700, color: TEAL, margin: "0 0 14px", letterSpacing: .2 }}>Your priorities. Better matches. Side by side.</p>
+            <p style={{ color: SLATE, maxWidth: 460, margin: "0 auto 18px", fontSize: 14.5, lineHeight: 1.55 }}>
+              Set what matters to <i>you</i>, add the towns you're weighing, and HomePlot scores and ranks them your way, with real data from the Census, USGS, FEMA, and more. Add a place to start, or let AI fill it in.
             </p>
             <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginBottom: 22 }}>
               {[
@@ -545,7 +546,7 @@ export default function NeighborhoodFit() {
             ) : (
               <div className="nf-cards">
                 {scored.map((h, i) => (
-                  <HoodCard key={h.id} h={h} rank={i}
+                  <HoodCard key={h.id} h={h} rank={i} dp={dp} rate={rate} term={term}
                     expanded={expanded === h.id}
                     onToggle={() => setExpanded(expanded === h.id ? null : h.id)}
                     onEdit={() => { setEditing(h); setShowAdd(true); }}
@@ -577,7 +578,7 @@ export default function NeighborhoodFit() {
 }
 
 /* ---------------- Card ---------------- */
-function HoodCard({ h, rank, expanded, onToggle, onEdit, onDelete }) {
+function HoodCard({ h, rank, dp, rate, term, expanded, onToggle, onEdit, onDelete }) {
   const leader = rank === 0;
   const ringColor = h.score >= 75 ? TEAL : h.score >= 50 ? GOLD : CORAL;
   const tenure = tenureFor(h.town || h.name);
@@ -606,6 +607,14 @@ function HoodCard({ h, rank, expanded, onToggle, onEdit, onDelete }) {
   }, [coords && coords[0], coords && coords[1]]);
 
   const R = 30, C = 2 * Math.PI * R, off = C * (1 - h.score / 100);
+
+  // When real Census property-tax data arrives, recompute the monthly payment
+  // with the town's actual effective tax rate instead of the flat estimate.
+  const realTaxRate = census && census.taxRate != null ? census.taxRate : null;
+  const monthlyReal = realTaxRate != null && dp != null && rate != null && term != null
+    ? calcMonthly(Number(h.price), dp, rate, term, realTaxRate)
+    : null;
+  const shownMonthly = monthlyReal != null ? monthlyReal : h.monthly;
   return (
     <div className="nf-card nf-pop" style={{
       background: SURF, border: leader ? `2px solid ${GOLD}` : `1px solid ${LINE}`,
@@ -636,7 +645,7 @@ function HoodCard({ h, rank, expanded, onToggle, onEdit, onDelete }) {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4, color: SLATE, fontSize: 13.5, flexWrap: "wrap" }}>
             <span style={{ fontWeight: 600, color: INK }}>{fmtMoney(h.price)}</span>
-            {h.monthly > 0 && <span>≈ {fmtMoney(h.monthly)}/mo</span>}
+            {shownMonthly > 0 && <span>≈ {fmtMoney(shownMonthly)}/mo{monthlyReal != null && <span style={{ opacity: .7 }} title={`Includes ${realTaxRate}% real property tax from Census`}> · real tax</span>}</span>}
             {h.strengths.length > 0 && <span>Strong on {h.strengths.map((s) => s.label.toLowerCase()).join(" and ")}</span>}
           </div>
           {h.note && <div style={{ fontSize: 13, color: SLATE, marginTop: 4, fontStyle: "italic" }}>"{h.note}"</div>}
@@ -654,6 +663,7 @@ function HoodCard({ h, rank, expanded, onToggle, onEdit, onDelete }) {
                   {census.ownerPct != null && <span><b style={{ color: INK }}>{census.ownerPct}%</b> owner · <b style={{ color: INK }}>{census.renterPct}%</b> renter</span>}
                   {census.medianIncome != null && <span>· median income <b style={{ color: INK }}>${census.medianIncome.toLocaleString()}</b></span>}
                   {census.medianAge != null && <span>· median age <b style={{ color: INK }}>{census.medianAge}</b></span>}
+                  {census.taxRate != null && <span>· property tax <b style={{ color: INK }}>{census.taxRate}%</b></span>}
                   <span style={{ opacity: .7 }}>· {census.source}</span>
                 </>
               ) : (
@@ -847,20 +857,26 @@ function CompareView({ scored }) {
   DIMENSIONS.forEach((d) => { bestDim[d.key] = Math.max(...scored.map((h) => h.dimScores[d.key])); });
 
   const scoreColor = (v) => (v >= 75 ? TEAL : v >= 50 ? GOLD : CORAL);
-  const rowLabel = { position: "sticky", left: 0, zIndex: 1, background: SURF, textAlign: "left", padding: "10px 14px", fontSize: 13, color: SLATE, fontWeight: 600, whiteSpace: "nowrap", borderRight: `1px solid ${LINE}` };
+  const rowLabel = { position: "sticky", left: 0, zIndex: 2, background: SURF, textAlign: "left", padding: "10px 14px", fontSize: 13, color: SLATE, fontWeight: 600, whiteSpace: "nowrap", borderRight: `1px solid ${LINE}` };
   const cell = { padding: "10px", textAlign: "center", borderLeft: `1px solid ${LINE}`, borderTop: `1px solid ${LINE}`, minWidth: 124 };
   const best = { background: "rgba(31,169,143,.14)" };
   const Tick = () => <Check size={12} color={TEAL} strokeWidth={3} style={{ verticalAlign: "middle", marginLeft: 4 }} />;
+  const many = scored.length > 4;
 
   return (
     <div className="nf-pop" style={{ background: SURF, border: `1px solid ${LINE}`, borderRadius: 16, overflow: "hidden" }}>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%" }}>
+      {many && (
+        <div style={{ padding: "8px 14px", fontSize: 12, color: SLATE, borderBottom: `1px solid ${LINE}`, display: "flex", alignItems: "center", gap: 6 }}>
+          <Info size={13} /> Scroll sideways to see all {scored.length} places. The name row and the labels stay pinned.
+        </div>
+      )}
+      <div style={{ overflow: "auto", maxHeight: "72vh", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+        <table style={{ borderCollapse: "separate", borderSpacing: 0, width: "100%" }}>
           <thead>
             <tr>
-              <th style={{ ...rowLabel, verticalAlign: "bottom", borderBottom: `1px solid ${LINE}` }}>Neighborhood</th>
+              <th style={{ ...rowLabel, top: 0, zIndex: 4, verticalAlign: "bottom", borderBottom: `1px solid ${LINE}` }}>Neighborhood</th>
               {scored.map((h, i) => (
-                <th key={h.id} style={{ ...cell, verticalAlign: "bottom", borderTop: "none", borderBottom: `1px solid ${LINE}`, background: i === 0 ? "rgba(242,180,65,.10)" : SURF }}>
+                <th key={h.id} style={{ ...cell, position: "sticky", top: 0, zIndex: 3, verticalAlign: "bottom", borderTop: "none", borderBottom: `1px solid ${LINE}`, background: i === 0 ? "#fbf4e3" : SURF }}>
                   {i === 0 && (
                     <div style={{ display: "inline-flex", alignItems: "center", gap: 3, background: GOLD, color: ONGOLD, fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: 99, marginBottom: 6 }}>
                       <Crown size={11} /> Best
@@ -1166,7 +1182,7 @@ function MortgageModal({ dp, setDp, credit, setCredit, baseRate, setBaseRate, te
       <div className="nf-pop" style={{ ...modalStyle, maxWidth: 440 }}>
         <ModalHead title="Mortgage estimate" onClose={onClose} />
         <div style={{ padding: "4px 20px 8px" }}>
-          <p style={{ fontSize: 13, color: SLATE, marginTop: 0 }}>Estimates a monthly payment from your credit, down payment, and term, plus a 1.25% property-tax estimate. Under 20% down adds PMI. The same assumptions drive each card's monthly figure.</p>
+          <p style={{ fontSize: 13, color: SLATE, marginTop: 0 }}>Estimates a monthly payment from your credit, down payment, and term. Property tax starts at a 1.25% estimate, and switches to each town's real effective rate from the Census when that data is available. Under 20% down adds PMI.</p>
           {rateInfo && rateInfo.source === "freddiemac-pmms" && (
             <p style={{ fontSize: 12.5, color: TEAL, fontWeight: 600, marginTop: 0 }}>
               Base rate is live from Freddie Mac: {rateInfo.rate30}% for a 30-year fixed{rateInfo.asOf ? ` (as of ${rateInfo.asOf})` : ""}. Your credit tier adjusts from there.
