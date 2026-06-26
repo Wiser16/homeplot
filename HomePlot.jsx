@@ -247,6 +247,7 @@ export default function NeighborhoodFit() {
   const [expanded, setExpanded] = useState(null);
 
   const [view, setView] = useState("ranked");
+  const [exportMsg, setExportMsg] = useState(""); // "" | "Saved" | "Shared" | "Couldn't save"
   const [celebrate, setCelebrate] = useState(false);
   const prevLeader = useRef(null);
 
@@ -403,22 +404,25 @@ export default function NeighborhoodFit() {
   // Save the whole session (places, notes, settings) so a person can back up or
   // move their work between devices. On phones that support it, open the native
   // share sheet (save to Files, message, email, etc.); otherwise download a JSON
-  // file. There are no accounts or cloud sync, so this is the manual save path.
+  // file. Reports a brief confirmation either way so it's clear it worked.
   const exportSession = async () => {
-    const data = { hoods, notes, budget, workZip, workCoords, weights, persona, dp, credit, baseRate, term, exportedAt: new Date().toISOString() };
+    const data = { app: "HomePlot", version: 1, hoods, notes, budget, workZip, workCoords, weights, persona, dp, credit, baseRate, term, exportedAt: new Date().toISOString() };
     const json = JSON.stringify(data, null, 2);
-    const fname = "homeplot-" + new Date().toISOString().slice(0, 10) + ".json";
+    const fname = "HomePlot-" + new Date().toISOString().slice(0, 10) + ".json";
+
+    const flash = (msg) => { setExportMsg(msg); setTimeout(() => setExportMsg(""), 2200); };
 
     // Try the native share sheet with a file attachment first (mobile).
     try {
       const file = new File([json], fname, { type: "application/json" });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: "HomePlot backup", text: "My HomePlot places and notes." });
+        flash("Shared");
         return;
       }
     } catch (err) {
-      // User cancelled the share sheet, or it failed; fall through to download.
-      if (err && err.name === "AbortError") return;
+      if (err && err.name === "AbortError") return; // user closed the sheet, no message needed
+      // otherwise fall through to download
     }
 
     // Desktop / unsupported: download a JSON file.
@@ -430,7 +434,10 @@ export default function NeighborhoodFit() {
       a.download = fname;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch { /* ignore */ }
+      flash("Saved");
+    } catch {
+      flash("Couldn't save");
+    }
   };
 
   return (
@@ -513,8 +520,8 @@ export default function NeighborhoodFit() {
               <span aria-hidden="true" style={{ width: 1, alignSelf: "stretch", background: LINE, margin: "2px 2px" }} />
             )}
             {hoods.length > 0 && (
-              <button className="nf-btn" onClick={exportSession} style={ghostBtn} title="Save your places and notes (share or download)">
-                <Download size={16} /> Export
+              <button className="nf-btn" onClick={exportSession} style={{ ...ghostBtn, ...(exportMsg ? { color: TEAL, borderColor: TEAL } : {}) }} title="Save your places and notes (share or download)">
+                {exportMsg ? <><Check size={16} strokeWidth={3} /> {exportMsg}</> : <><Download size={16} /> Export</>}
               </button>
             )}
             {(hoods.length > 0 || workZip || budget !== "1000000") && (
