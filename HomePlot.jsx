@@ -400,17 +400,34 @@ export default function NeighborhoodFit() {
     setView("ranked"); setExpanded(null);
   };
 
-  // Download the whole session (places, notes, settings) as a JSON file, so a
-  // person can back up or move their work between devices. There are no accounts
-  // or cloud sync, so this is the manual save path.
-  const exportSession = () => {
+  // Save the whole session (places, notes, settings) so a person can back up or
+  // move their work between devices. On phones that support it, open the native
+  // share sheet (save to Files, message, email, etc.); otherwise download a JSON
+  // file. There are no accounts or cloud sync, so this is the manual save path.
+  const exportSession = async () => {
+    const data = { hoods, notes, budget, workZip, workCoords, weights, persona, dp, credit, baseRate, term, exportedAt: new Date().toISOString() };
+    const json = JSON.stringify(data, null, 2);
+    const fname = "homeplot-" + new Date().toISOString().slice(0, 10) + ".json";
+
+    // Try the native share sheet with a file attachment first (mobile).
     try {
-      const data = { hoods, notes, budget, workZip, workCoords, weights, persona, dp, credit, baseRate, term, exportedAt: new Date().toISOString() };
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const file = new File([json], fname, { type: "application/json" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "HomePlot backup", text: "My HomePlot places and notes." });
+        return;
+      }
+    } catch (err) {
+      // User cancelled the share sheet, or it failed; fall through to download.
+      if (err && err.name === "AbortError") return;
+    }
+
+    // Desktop / unsupported: download a JSON file.
+    try {
+      const blob = new Blob([json], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "homeplot-" + new Date().toISOString().slice(0, 10) + ".json";
+      a.download = fname;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch { /* ignore */ }
@@ -447,7 +464,9 @@ export default function NeighborhoodFit() {
         .nf-map-score { background: transparent !important; border: none !important; box-shadow: none !important; color: #fff !important; font-weight: 800 !important; font-size: 11px !important; }
         .nf-map-score::before { display: none !important; }
         .nf-work-marker { background: none; border: none; }
-        .nf-work-pin { display: flex; align-items: center; justify-content: center; background: #16263F; color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .04em; border: 2px solid #fff; border-radius: 7px; width: 54px; height: 26px; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
+        .nf-work-wrap { display: flex; flex-direction: column; align-items: center; }
+        .nf-work-pin { display: flex; align-items: center; justify-content: center; background: #16263F; color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .04em; border: 2px solid #fff; border-radius: 7px; width: 54px; height: 24px; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
+        .nf-work-tip { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #16263F; margin-top: -1px; filter: drop-shadow(0 2px 1px rgba(0,0,0,.3)); }
         .leaflet-container { font-family: inherit; }
         @keyframes nffall { 0% { transform: translateY(-12vh) rotate(0deg); opacity: 1 } 100% { transform: translateY(112vh) rotate(560deg); opacity: 0 } }
         .nf-confetti { position: fixed; inset: 0; pointer-events: none; z-index: 60; overflow: hidden; }
@@ -491,13 +510,16 @@ export default function NeighborhoodFit() {
               <Wallet size={16} /> Mortgage
             </button>
             {(hoods.length > 0 || workZip || budget !== "1000000") && (
-              <button className="nf-btn" onClick={resetAll} style={ghostBtn} title="Clear everything and start fresh">
-                <RotateCcw size={16} /> Reset
-              </button>
+              <span aria-hidden="true" style={{ width: 1, alignSelf: "stretch", background: LINE, margin: "2px 2px" }} />
             )}
             {hoods.length > 0 && (
-              <button className="nf-btn" onClick={exportSession} style={ghostBtn} title="Download your places and notes as a backup file">
+              <button className="nf-btn" onClick={exportSession} style={ghostBtn} title="Save your places and notes (share or download)">
                 <Download size={16} /> Export
+              </button>
+            )}
+            {(hoods.length > 0 || workZip || budget !== "1000000") && (
+              <button className="nf-btn" onClick={resetAll} style={ghostBtn} title="Clear everything and start fresh">
+                <RotateCcw size={16} /> Reset
               </button>
             )}
           </div>
@@ -570,11 +592,27 @@ export default function NeighborhoodFit() {
           </div>
         ) : (
           <>
+            {scored.length >= 1 && (() => {
+              const top = [...DIMENSIONS].sort((a, b2) => (weights[b2.key] || 0) - (weights[a.key] || 0)).filter((d) => (weights[d.key] || 0) > 0).slice(0, 4);
+              return (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap", marginBottom: 14, padding: "10px 14px", background: SURF, border: `1px solid ${LINE}`, borderRadius: 12 }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: SLATE, letterSpacing: .3 }}>YOUR PRIORITIES</span>
+                  <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {top.map((d) => (
+                      <span key={d.key} style={{ fontSize: 12.5, fontWeight: 600, color: INK, background: PAPER, border: `1px solid ${LINE}`, borderRadius: 99, padding: "3px 10px" }}>{d.label}</span>
+                    ))}
+                  </span>
+                  <button onClick={() => setShowWeights(true)} className="nf-btn" style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "none", color: TEAL, fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit" }}>
+                    <SlidersHorizontal size={13} /> Edit
+                  </button>
+                </div>
+              );
+            })()}
             {scored.length >= 2 && <Verdict scored={scored} />}
             {scored.length >= 2 && (
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
                 <div style={{ display: "inline-flex", background: SURF, border: `1px solid ${LINE}`, borderRadius: 11, padding: 3, gap: 3 }}>
-                  {[["ranked", "Ranked", List], ["compare", "Compare Side by Side", Table], ["map", "Map", MapIcon]].map(([key, label, Icon]) => (
+                  {[["ranked", "Ranked", List], ["compare", "Compare", Table], ["map", "Map", MapIcon]].map(([key, label, Icon]) => (
                     <button key={key} onClick={() => setView(key)} className="nf-btn"
                       style={{ display: "flex", alignItems: "center", gap: 6, border: "none", borderRadius: 8, padding: "8px 18px", fontWeight: 600, fontSize: 13.5, fontFamily: "inherit", cursor: "pointer", background: view === key ? TEAL : "transparent", color: view === key ? "#fff" : SLATE }}>
                       <Icon size={15} /> {label}
@@ -591,7 +629,7 @@ export default function NeighborhoodFit() {
               <div className="nf-cards">
                 {scored.map((h, i) => (
                   <div key={h.id} className="nf-rise" style={{ animationDelay: `${Math.min(i * 60, 480)}ms`, height: "100%" }}>
-                    <HoodCard h={h} rank={i} dp={dp} rate={rate} term={term}
+                    <HoodCard h={h} rank={i} topPlace={scored[0]} dp={dp} rate={rate} term={term}
                       note={notes[h.id] || ""}
                       onNote={(text) => setNotes((n) => ({ ...n, [h.id]: text }))}
                       expanded={expanded === h.id}
@@ -613,6 +651,7 @@ export default function NeighborhoodFit() {
       </main>
 
       <footer style={{ textAlign: "center", padding: "10px 20px 36px", fontSize: 12, color: SLATE }}>
+        <div style={{ marginBottom: 4 }}>Real data from official public sources: U.S. Census, FEMA, USGS, and NOAA. Mortgage base rate live from Freddie Mac.</div>
         HomePlot · Plot your perfect neighborhood
       </footer>
 
@@ -626,7 +665,7 @@ export default function NeighborhoodFit() {
 }
 
 /* ---------------- Card ---------------- */
-function HoodCard({ h, rank, dp, rate, term, note, onNote, expanded, onToggle, onEdit, onDelete }) {
+function HoodCard({ h, rank, topPlace, dp, rate, term, note, onNote, expanded, onToggle, onEdit, onDelete }) {
   const leader = rank === 0;
   const ringColor = h.score >= 75 ? TEAL : h.score >= 50 ? GOLD : CORAL;
   const tenure = tenureFor(h.town || h.name);
@@ -780,6 +819,29 @@ function HoodCard({ h, rank, dp, rate, term, note, onNote, expanded, onToggle, o
       </button>
       {expanded && (
         <div className="nf-reveal" style={{ marginTop: 10, paddingTop: 12, borderTop: `1px solid ${LINE}`, display: "grid", gap: 9 }}>
+          {topPlace && topPlace.id !== h.id && (() => {
+            // Why this place didn't win: the factors where it most gains and most
+            // loses against the leader, weighted by nothing fancy, just the raw
+            // per-factor gap so it's honest and easy to read.
+            const diffs = DIMENSIONS.map((d) => ({ label: d.label, delta: Math.round(h.dimScores[d.key] - topPlace.dimScores[d.key]) }));
+            const gains = diffs.filter((x) => x.delta > 0).sort((a, b) => b.delta - a.delta).slice(0, 2);
+            const losses = diffs.filter((x) => x.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, 2);
+            const lname = topPlace.town || topPlace.name;
+            if (!gains.length && !losses.length) return null;
+            return (
+              <div style={{ background: PAPER, border: `1px solid ${LINE}`, borderRadius: 10, padding: "9px 11px", marginBottom: 2 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: .4, color: SLATE, opacity: .8, marginBottom: 5 }}>VS {lname.toUpperCase()} (THE LEADER)</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {gains.map((g) => (
+                    <span key={g.label} style={{ fontSize: 12, fontWeight: 700, color: TEAL, background: "rgba(31,169,143,.12)", borderRadius: 99, padding: "2px 9px" }}>+{g.delta} {g.label}</span>
+                  ))}
+                  {losses.map((l) => (
+                    <span key={l.label} style={{ fontSize: 12, fontWeight: 700, color: CORAL, background: "rgba(255,90,77,.12)", borderRadius: 99, padding: "2px 9px" }}>{l.delta} {l.label}</span>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
           {DIMENSIONS.map((d) => {
             const v = h.dimScores[d.key], col = v >= 75 ? TEAL : v >= 50 ? GOLD : CORAL;
             const star = (h.source === "ai" || h.source === "table") && d.key !== "commute";
@@ -877,9 +939,10 @@ function MapView({ scored, workCoords, dark }) {
     if (workCoords) {
       const icon = L.divIcon({
         className: "nf-work-marker",
-        html: '<div class="nf-work-pin"><span>Work</span></div>',
-        iconSize: [54, 26],
-        iconAnchor: [27, 13],
+        html: '<div class="nf-work-wrap"><div class="nf-work-pin"><span>Work</span></div><div class="nf-work-tip"></div></div>',
+        iconSize: [54, 40],
+        iconAnchor: [27, 40], // anchor at the tip so it points to the exact spot
+        popupAnchor: [0, -40],
       });
       const w = L.marker([workCoords[0], workCoords[1]], { icon, zIndexOffset: 1000 }).addTo(map);
       w.bindPopup("<b>Your work</b>");
@@ -945,6 +1008,28 @@ function Verdict({ scored }) {
     : priceClause ? ` ${runnerName} is close behind${priceClause}.` : ` ${runnerName} is close behind.`;
 
   const sentence = `${leaderName} is your best match, scoring ${leader.score}. It ${verb} ${top[0]} and ${top[1]}.${rival}`;
+  // Confidence reflects how clear the win is: a wide gap over the runner-up is a
+  // confident call; a narrow one is genuinely a close call, and saying so is more
+  // honest than implying certainty.
+  const scoreGap = leader.score - runner.score;
+  const confidence = scoreGap >= 8 ? { label: "Clear winner", color: TEAL } : scoreGap >= 4 ? { label: "Moderate edge", color: GOLD } : { label: `Close call · ${scoreGap}-pt gap`, color: CORAL };
+
+  // Structured highlights, computed honestly from the scores.
+  // Why #1: the factors where the leader most leads the field.
+  const whyWon = top.slice(0, 2).join(" and ");
+  // Biggest trade-off: the leader's weakest factor relative to the field max.
+  const tradeoff = DIMENSIONS
+    .map((d) => ({ label: d.label, behind: fieldMax[d.key] - leader.dimScores[d.key] }))
+    .sort((a, b) => b.behind - a.behind)[0];
+  const tradeoffText = tradeoff && tradeoff.behind >= 10
+    ? `Weakest on ${tradeoff.label.toLowerCase()}, where another place leads`
+    : "No major weak spot against the field";
+  // Savings vs runner-up (only when the leader is actually cheaper).
+  const savings = (pL && pR && pR < pL) ? null : (pL && pR && pL < pR) ? fmtMoney(pR - pL) : null;
+  const savingsText = savings
+    ? `About ${savings} less than ${runnerName}`
+    : (pL && pR && pR < pL) ? `${runnerName} is cheaper by ${fmtMoney(pL - pR)}` : "Similar price to the runner-up";
+
   const [copied, setCopied] = useState(false);
   const share = async () => {
     const ranking = scored.map((h, i) => `${i + 1}. ${h.name} — ${h.score}`).join("\n");
@@ -980,6 +1065,23 @@ function Verdict({ scored }) {
         </div>
         <div style={{ fontSize: 14.5, lineHeight: 1.5, color: INK }}>
           <strong>{leaderName}</strong> is your best match, scoring {leader.score}. It {verb} {top[0]} and {top[1]}.{rival}
+        </div>
+        <div style={{ marginTop: 10, display: "grid", gap: 5 }}>
+          <div style={{ fontSize: 13, color: INK, display: "flex", gap: 7, alignItems: "baseline" }}>
+            <Check size={13} color={TEAL} strokeWidth={3} style={{ flexShrink: 0, transform: "translateY(1px)" }} />
+            <span><b>Why it ranked #1:</b> {whyWon}.</span>
+          </div>
+          <div style={{ fontSize: 13, color: INK, display: "flex", gap: 7, alignItems: "baseline" }}>
+            <Info size={13} color={GOLD} style={{ flexShrink: 0, transform: "translateY(1px)" }} />
+            <span><b>Biggest trade-off:</b> {tradeoffText}.</span>
+          </div>
+          <div style={{ fontSize: 13, color: INK, display: "flex", gap: 7, alignItems: "baseline" }}>
+            <Wallet size={13} color={SLATE} style={{ flexShrink: 0, transform: "translateY(1px)" }} />
+            <span><b>Cost vs runner-up:</b> {savingsText}.</span>
+          </div>
+        </div>
+        <div style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700, color: confidence.color, background: PAPER, border: `1px solid ${LINE}`, borderRadius: 99, padding: "3px 10px" }}>
+          <span style={{ width: 7, height: 7, borderRadius: 99, background: confidence.color }} /> {confidence.label}
         </div>
       </div>
     </div>
@@ -1021,9 +1123,20 @@ function CompareView({ scored }) {
   const many = scored.length > 4;
   const scrollRef = useRef(null);
   const nudge = (dir) => { const el = scrollRef.current; if (el) el.scrollBy({ left: dir * Math.max(220, el.clientWidth * 0.6), behavior: "smooth" }); };
+  const [diffOnly, setDiffOnly] = useState(false);
 
   return (
     <div className="nf-pop" style={{ background: SURF, border: `1px solid ${LINE}`, borderRadius: 16, overflow: "hidden", position: "relative" }}>
+      <div style={{ padding: "12px 14px 10px", borderBottom: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <div>
+          <div className="nf-display" style={{ fontSize: 16, fontWeight: 800 }}>Compare Places Side by Side</div>
+          <div style={{ fontSize: 12, color: SLATE, marginTop: 1 }}>Every place, every factor, lined up. <Check size={11} color={TEAL} strokeWidth={3} style={{ verticalAlign: "middle" }} /> marks the best in each row.</div>
+        </div>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: SLATE, fontWeight: 600, cursor: "pointer", userSelect: "none" }}>
+          <input type="checkbox" checked={diffOnly} onChange={(e) => setDiffOnly(e.target.checked)} style={{ accentColor: TEAL, width: 15, height: 15 }} />
+          Differences only
+        </label>
+      </div>
       {many && (
         <div style={{ padding: "8px 14px", fontSize: 12, color: SLATE, borderBottom: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
           <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Info size={13} /> Showing all {scored.length} places. Names and labels stay pinned as you scroll.</span>
@@ -1075,7 +1188,12 @@ function CompareView({ scored }) {
                 return <td key={h.id} style={{ ...cell, ...(b ? best : {}), fontSize: 13.5, fontWeight: b ? 700 : 500 }}>{h.monthly ? fmtMoney(h.monthly) : "—"}{b && <Tick />}</td>;
               })}
             </tr>
-            {DIMENSIONS.map((d) => (
+            {DIMENSIONS.filter((d) => {
+              if (!diffOnly) return true;
+              // Hide rows where every place has the same rounded value.
+              const vals = scored.map((h) => Math.round(h.dimScores[d.key]));
+              return new Set(vals).size > 1;
+            }).map((d) => (
               <tr key={d.key}>
                 <th scope="row" style={rowLabel}>{d.label}</th>
                 {scored.map((h) => {
