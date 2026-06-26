@@ -401,42 +401,73 @@ export default function NeighborhoodFit() {
     setView("ranked"); setExpanded(null);
   };
 
-  // Save the whole session (places, notes, settings) so a person can back up or
-  // move their work between devices. On phones that support it, open the native
-  // share sheet (save to Files, message, email, etc.); otherwise download a JSON
-  // file. Reports a brief confirmation either way so it's clear it worked.
-  const exportSession = async () => {
-    const data = { app: "HomePlot", version: 1, hoods, notes, budget, workZip, workCoords, weights, persona, dp, credit, baseRate, term, exportedAt: new Date().toISOString() };
-    const json = JSON.stringify(data, null, 2);
-    const fname = "HomePlot-" + new Date().toISOString().slice(0, 10) + ".json";
-
+  // Build a clean, printable one-page summary of the ranking and verdict, then
+  // open the browser's print dialog, which offers "Save as PDF" on every device.
+  // Far more useful and shareable than a raw data file for a home buyer.
+  const exportSession = () => {
     const flash = (msg) => { setExportMsg(msg); setTimeout(() => setExportMsg(""), 2200); };
+    if (!scored.length) return;
 
-    // Try the native share sheet with a file attachment first (mobile).
-    try {
-      const file = new File([json], fname, { type: "application/json" });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: "HomePlot backup", text: "My HomePlot places and notes." });
-        flash("Shared");
-        return;
-      }
-    } catch (err) {
-      if (err && err.name === "AbortError") return; // user closed the sheet, no message needed
-      // otherwise fall through to download
-    }
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const top = [...DIMENSIONS].sort((a, b2) => (weights[b2.key] || 0) - (weights[a.key] || 0)).filter((d) => (weights[d.key] || 0) > 0).slice(0, 4).map((d) => d.label);
 
-    // Desktop / unsupported: download a JSON file.
+    const rows = scored.map((h, i) => {
+      const monthly = h.monthly ? fmtMoney(h.monthly) : "—";
+      const factors = DIMENSIONS.map((d) => `<td style="text-align:center;padding:6px 8px;border-bottom:1px solid #eee">${Math.round(h.dimScores[d.key])}</td>`).join("");
+      return `<tr>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-weight:700">${i + 1}. ${esc(h.name)}${i === 0 ? ' <span style="color:#C98A14">★ Best</span>' : ""}</td>
+        <td style="text-align:center;padding:6px 8px;border-bottom:1px solid #eee;font-weight:700">${h.score}</td>
+        <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #eee">${fmtMoney(Number(h.price))}</td>
+        <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #eee">${monthly}</td>
+        ${factors}
+      </tr>`;
+    }).join("");
+
+    const factorHead = DIMENSIONS.map((d) => `<th style="font-size:9px;font-weight:600;color:#667;padding:6px 4px;border-bottom:2px solid #16263F;writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap">${esc(d.label)}</th>`).join("");
+
+    const lead = scored[0];
+    const leadName = lead.town || lead.name;
+    const verdict = scored.length >= 2
+      ? `<strong>${esc(leadName)}</strong> is the best match, scoring ${lead.score}, against your priorities: ${esc(top.join(", "))}.`
+      : `${esc(leadName)} scored ${lead.score} against your priorities: ${esc(top.join(", "))}.`;
+
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>HomePlot Comparison</title>
+      <style>
+        @page { margin: 14mm; }
+        body { font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color: #16263F; margin: 0; }
+        h1 { font-size: 22px; margin: 0 0 2px; }
+        .sub { color: #5b6b7d; font-size: 12px; margin-bottom: 14px; }
+        .verdict { background: #f7f3e8; border-left: 4px solid #F2B441; padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 16px; }
+        table { border-collapse: collapse; width: 100%; font-size: 11px; }
+        th { text-align: center; }
+        .foot { margin-top: 18px; font-size: 10px; color: #889; }
+      </style></head><body>
+      <h1>HomePlot — Neighborhood Comparison</h1>
+      <div class="sub">Your priorities, ranked. Generated ${dateStr} · budget ${fmtMoney(Number(budget) || 0)}</div>
+      <div class="verdict">${verdict}</div>
+      <table>
+        <thead><tr>
+          <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #16263F">Neighborhood</th>
+          <th style="padding:6px 8px;border-bottom:2px solid #16263F">Match</th>
+          <th style="padding:6px 8px;border-bottom:2px solid #16263F">Price</th>
+          <th style="padding:6px 8px;border-bottom:2px solid #16263F">Est./mo</th>
+          ${factorHead}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="foot">Scores marked on screen with an asterisk are estimates; the rest reflect your own inputs or official public data (U.S. Census, FEMA, USGS, NOAA). HomePlot · homeplotapp.com</div>
+      </body></html>`;
+
     try {
-      const blob = new Blob([json], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fname;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      flash("Saved");
+      const w = window.open("", "_blank");
+      if (!w) { flash("Allow pop-ups"); return; }
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      setTimeout(() => { w.print(); flash("Opened PDF"); }, 300);
     } catch {
-      flash("Couldn't save");
+      flash("Couldn't open");
     }
   };
 
@@ -520,8 +551,8 @@ export default function NeighborhoodFit() {
               <span aria-hidden="true" style={{ width: 1, alignSelf: "stretch", background: LINE, margin: "2px 2px" }} />
             )}
             {hoods.length > 0 && (
-              <button className="nf-btn" onClick={exportSession} style={{ ...ghostBtn, ...(exportMsg ? { color: TEAL, borderColor: TEAL } : {}) }} title="Save your places and notes (share or download)">
-                {exportMsg ? <><Check size={16} strokeWidth={3} /> {exportMsg}</> : <><Download size={16} /> Export</>}
+              <button className="nf-btn" onClick={exportSession} style={{ ...ghostBtn, ...(exportMsg ? { color: TEAL, borderColor: TEAL } : {}) }} title="Save or email a clean PDF of your comparison">
+                {exportMsg ? <><Check size={16} strokeWidth={3} /> {exportMsg}</> : <><Download size={16} /> Save PDF</>}
               </button>
             )}
             {(hoods.length > 0 || workZip || budget !== "1000000") && (
