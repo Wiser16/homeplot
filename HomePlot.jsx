@@ -446,6 +446,8 @@ export default function NeighborhoodFit() {
         @media (prefers-reduced-motion: reduce) { .nf-ring,.nf-card,.nf-btn{transition:none!important} .nf-pop,.nf-spin,.nf-rise,.nf-reveal{animation:none!important} }
         .nf-map-score { background: transparent !important; border: none !important; box-shadow: none !important; color: #fff !important; font-weight: 800 !important; font-size: 11px !important; }
         .nf-map-score::before { display: none !important; }
+        .nf-work-marker { background: none; border: none; }
+        .nf-work-pin { display: flex; align-items: center; justify-content: center; background: #16263F; color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .04em; border: 2px solid #fff; border-radius: 7px; width: 54px; height: 26px; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
         .leaflet-container { font-family: inherit; }
         @keyframes nffall { 0% { transform: translateY(-12vh) rotate(0deg); opacity: 1 } 100% { transform: translateY(112vh) rotate(560deg); opacity: 0 } }
         .nf-confetti { position: fixed; inset: 0; pointer-events: none; z-index: 60; overflow: hidden; }
@@ -873,9 +875,13 @@ function MapView({ scored, workCoords, dark }) {
     });
 
     if (workCoords) {
-      const w = L.circleMarker([workCoords[0], workCoords[1]], {
-        radius: 8, fillColor: "#16263F", color: "#fff", weight: 2, fillOpacity: 1,
-      }).addTo(map);
+      const icon = L.divIcon({
+        className: "nf-work-marker",
+        html: '<div class="nf-work-pin"><span>Work</span></div>',
+        iconSize: [54, 26],
+        iconAnchor: [27, 13],
+      });
+      const w = L.marker([workCoords[0], workCoords[1]], { icon, zIndexOffset: 1000 }).addTo(map);
       w.bindPopup("<b>Your work</b>");
       pts.push([workCoords[0], workCoords[1]]);
     }
@@ -888,7 +894,7 @@ function MapView({ scored, workCoords, dark }) {
   return (
     <div className="nf-pop" style={{ background: SURF, border: `1px solid ${LINE}`, borderRadius: 16, overflow: "hidden" }}>
       <div style={{ padding: "8px 14px", fontSize: 12, color: SLATE, borderBottom: `1px solid ${LINE}`, display: "flex", alignItems: "center", gap: 6 }}>
-        <Info size={13} /> Your places, mapped. Pin color shows match score; the dark pin is your work. Tap a pin for details.
+        <Info size={13} /> Your places, mapped. Pin color shows match score; the dark "Work" marker is your job. Tap any pin for details.
       </div>
       <div ref={elRef} style={{ height: "60vh", width: "100%", background: dark ? "#0F1722" : "#e8eef2" }} />
       {!ready && <div style={{ padding: 16, fontSize: 13, color: SLATE }}>Loading map…</div>}
