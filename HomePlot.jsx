@@ -46,20 +46,20 @@ const DARK_VARS = {
 // from numbers; the rest are quick 1–5 gut-checks.
 const DIMENSIONS = [
   { key: "affordability", label: "Affordability", w: 40, auto: "price", blurb: "Price vs. your budget" },
-  { key: "commute",       label: "Commute",        w: 20, auto: "miles", blurb: "Miles to your work" },
-  { key: "schools",       label: "Schools",        w: 60, blurb: "Quality of nearby schools" },
-  { key: "schoolAccess",  label: "School access",  w: 80, blurb: "Ease of getting into a top school" },
   { key: "safety",        label: "Safety",         w: 40, blurb: "Crime / how safe it feels" },
   { key: "familySafety",  label: "Family safety",  w: 60, blurb: "Safe for kids day to day" },
+  { key: "schools",       label: "Schools",        w: 60, blurb: "Quality of nearby schools" },
+  { key: "schoolAccess",  label: "School access",  w: 80, blurb: "Ease of getting into a top school" },
   { key: "suburbGreen",   label: "Suburb & green", w: 100, blurb: "Green space, suburban feel" },
   { key: "retailDining",  label: "Retail & dining", w: 100, blurb: "Shops, restaurants, services" },
   { key: "lotYard",       label: "Lot & yard",     w: 100, blurb: "Home and lot size for the money" },
-  { key: "walk",          label: "Walkability",    w: 10, blurb: "Walk / bike / transit" },
-  { key: "beach",         label: "Beach / coastal", w: 20, blurb: "Closeness to the coast" },
+  { key: "culture",       label: "Culture & cool", w: 60, blurb: "Arts, vibe, character" },
+  { key: "walk",          label: "Walkability",    w: 35, blurb: "Walk / bike / transit" },
+  { key: "commute",       label: "Commute",        w: 20, auto: "miles", blurb: "Miles to your work" },
   { key: "earthquake",    label: "Quake safety",   w: 80, blurb: "Lower seismic risk" },
   { key: "fire",          label: "Fire safety",    w: 40, blurb: "Lower wildfire risk" },
+  { key: "beach",         label: "Beach / coastal", w: 20, blurb: "Closeness to the coast" },
   { key: "weather",       label: "Weather",        w: 20, blurb: "Year-round comfort" },
-  { key: "culture",       label: "Culture & cool", w: 60, blurb: "Arts, vibe, character" },
 ];
 
 const RATED = DIMENSIONS.filter((d) => !d.auto);
@@ -509,9 +509,12 @@ export default function NeighborhoodFit() {
               <MapPin size={26} color={CORAL} />
             </div>
             <h2 className="nf-display" style={{ fontSize: 26, fontWeight: 800, margin: "0 0 4px" }}>Plot Your Perfect Neighborhood</h2>
-            <p className="nf-display" style={{ fontSize: 15, fontWeight: 700, color: TEAL, margin: "0 0 14px", letterSpacing: .2 }}>Your priorities. Better matches. Side by side.</p>
-            <p style={{ color: SLATE, maxWidth: 460, margin: "0 auto 18px", fontSize: 14.5, lineHeight: 1.55 }}>
-              Set what matters to <i>you</i>, add the towns you're weighing, and HomePlot scores and ranks them your way, with real data from the Census, USGS, FEMA, and more. Add a place to start, or let AI fill it in.
+            <p className="nf-display" style={{ fontSize: 15, fontWeight: 700, color: TEAL, margin: "0 0 10px", letterSpacing: .2 }}>Your priorities. Better matches. Side by side.</p>
+            <p style={{ color: INK, maxWidth: 460, margin: "0 auto 10px", fontSize: 15, fontWeight: 600, lineHeight: 1.5 }}>
+              Score and compare the towns you're weighing, ranked by what matters to <i>you</i>.
+            </p>
+            <p style={{ color: SLATE, maxWidth: 460, margin: "0 auto 18px", fontSize: 14, lineHeight: 1.55 }}>
+              Backed by real data from the Census, USGS, FEMA, and more. Add a place to start, or let AI fill it in.
             </p>
             <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginBottom: 22 }}>
               {[
