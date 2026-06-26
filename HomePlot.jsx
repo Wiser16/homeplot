@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Plus, X, Crown, Trash2, Pencil, SlidersHorizontal,
   MapPin, RotateCcw, Sparkles, ChevronDown, ChevronUp, Wallet, Loader2,
-  List, Table, Trophy, ExternalLink, Moon, Sun, Check, Users, Info, Activity, Droplets, CloudSun, Wind, ChevronLeft, ChevronRight
+  List, Table, Trophy, ExternalLink, Moon, Sun, Check, Users, Info, Activity, Droplets, CloudSun, Wind, ChevronLeft, ChevronRight, Download, Map as MapIcon
 } from "lucide-react";
 
 /* ----------------------------------------------------------------
@@ -239,6 +239,7 @@ export default function NeighborhoodFit() {
   const [weights, setWeights] = useState(saved?.weights ?? DIMENSIONS.reduce((a, d) => ({ ...a, [d.key]: d.w }), {}));
   const [persona, setPersona] = useState(saved?.persona ?? "resident");
   const [hoods, setHoods] = useState(saved?.hoods ?? []);
+  const [notes, setNotes] = useState(saved?.notes ?? {}); // { [placeId]: "visit notes" }
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState(null);
   const [showWeights, setShowWeights] = useState(false);
@@ -293,8 +294,8 @@ export default function NeighborhoodFit() {
 
   // Save durable user data whenever it changes (no-op where storage is blocked).
   useEffect(() => {
-    saveSaved({ hoods, budget, workZip, workCoords, weights, persona, dp, credit, baseRate, term, forced });
-  }, [hoods, budget, workZip, workCoords, weights, persona, dp, credit, baseRate, term, forced]);
+    saveSaved({ hoods, notes, budget, workZip, workCoords, weights, persona, dp, credit, baseRate, term, forced });
+  }, [hoods, notes, budget, workZip, workCoords, weights, persona, dp, credit, baseRate, term, forced]);
 
   // Geocode a US ZIP to coordinates for auto commute distance. Light,
   // CORS-friendly ZIP lookup; full address + real drive time live in backend.
@@ -390,12 +391,29 @@ export default function NeighborhoodFit() {
     if (typeof window !== "undefined" && window.confirm && !window.confirm("Clear all your places and settings and start fresh? This can't be undone.")) return;
     try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
     setHoods([]);
+    setNotes({});
     setBudget("1000000");
     setWorkZip(""); setWorkCoords(null);
     setWeights({ ...RESIDENT_WEIGHTS }); setPersona("resident");
     setDp(20); setCredit("760");
     setBaseRate(rateInfo?.rate30 ?? DEFAULT_BASE_RATE); setTerm(30);
     setView("ranked"); setExpanded(null);
+  };
+
+  // Download the whole session (places, notes, settings) as a JSON file, so a
+  // person can back up or move their work between devices. There are no accounts
+  // or cloud sync, so this is the manual save path.
+  const exportSession = () => {
+    try {
+      const data = { hoods, notes, budget, workZip, workCoords, weights, persona, dp, credit, baseRate, term, exportedAt: new Date().toISOString() };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "homeplot-" + new Date().toISOString().slice(0, 10) + ".json";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch { /* ignore */ }
   };
 
   return (
@@ -426,6 +444,9 @@ export default function NeighborhoodFit() {
         @media (min-width: 760px) { .nf-cards { grid-template-columns: 1fr 1fr; } }
         @media (min-width: 1100px) { .nf-cards { grid-template-columns: 1fr 1fr 1fr; } }
         @media (prefers-reduced-motion: reduce) { .nf-ring,.nf-card,.nf-btn{transition:none!important} .nf-pop,.nf-spin,.nf-rise,.nf-reveal{animation:none!important} }
+        .nf-map-score { background: transparent !important; border: none !important; box-shadow: none !important; color: #fff !important; font-weight: 800 !important; font-size: 11px !important; }
+        .nf-map-score::before { display: none !important; }
+        .leaflet-container { font-family: inherit; }
         @keyframes nffall { 0% { transform: translateY(-12vh) rotate(0deg); opacity: 1 } 100% { transform: translateY(112vh) rotate(560deg); opacity: 0 } }
         .nf-confetti { position: fixed; inset: 0; pointer-events: none; z-index: 60; overflow: hidden; }
         .nf-confetti i { position: absolute; top: 0; width: 9px; height: 14px; border-radius: 2px; animation: nffall 1.5s cubic-bezier(.3,.7,.4,1) forwards; }
@@ -470,6 +491,11 @@ export default function NeighborhoodFit() {
             {(hoods.length > 0 || workZip || budget !== "1000000") && (
               <button className="nf-btn" onClick={resetAll} style={ghostBtn} title="Clear everything and start fresh">
                 <RotateCcw size={16} /> Reset
+              </button>
+            )}
+            {hoods.length > 0 && (
+              <button className="nf-btn" onClick={exportSession} style={ghostBtn} title="Download your places and notes as a backup file">
+                <Download size={16} /> Export
               </button>
             )}
           </div>
@@ -546,7 +572,7 @@ export default function NeighborhoodFit() {
             {scored.length >= 2 && (
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
                 <div style={{ display: "inline-flex", background: SURF, border: `1px solid ${LINE}`, borderRadius: 11, padding: 3, gap: 3 }}>
-                  {[["ranked", "Ranked", List], ["compare", "Compare Side by Side", Table]].map(([key, label, Icon]) => (
+                  {[["ranked", "Ranked", List], ["compare", "Compare Side by Side", Table], ["map", "Map", MapIcon]].map(([key, label, Icon]) => (
                     <button key={key} onClick={() => setView(key)} className="nf-btn"
                       style={{ display: "flex", alignItems: "center", gap: 6, border: "none", borderRadius: 8, padding: "8px 18px", fontWeight: 600, fontSize: 13.5, fontFamily: "inherit", cursor: "pointer", background: view === key ? TEAL : "transparent", color: view === key ? "#fff" : SLATE }}>
                       <Icon size={15} /> {label}
@@ -557,11 +583,15 @@ export default function NeighborhoodFit() {
             )}
             {view === "compare" && scored.length >= 2 ? (
               <CompareView scored={scored} />
+            ) : view === "map" && scored.length >= 2 ? (
+              <MapView scored={scored} workCoords={workCoords} dark={dark} />
             ) : (
               <div className="nf-cards">
                 {scored.map((h, i) => (
                   <div key={h.id} className="nf-rise" style={{ animationDelay: `${Math.min(i * 60, 480)}ms`, height: "100%" }}>
                     <HoodCard h={h} rank={i} dp={dp} rate={rate} term={term}
+                      note={notes[h.id] || ""}
+                      onNote={(text) => setNotes((n) => ({ ...n, [h.id]: text }))}
                       expanded={expanded === h.id}
                       onToggle={() => setExpanded(expanded === h.id ? null : h.id)}
                       onEdit={() => { setEditing(h); setShowAdd(true); }}
@@ -594,7 +624,7 @@ export default function NeighborhoodFit() {
 }
 
 /* ---------------- Card ---------------- */
-function HoodCard({ h, rank, dp, rate, term, expanded, onToggle, onEdit, onDelete }) {
+function HoodCard({ h, rank, dp, rate, term, note, onNote, expanded, onToggle, onEdit, onDelete }) {
   const leader = rank === 0;
   const ringColor = h.score >= 75 ? TEAL : h.score >= 50 ? GOLD : CORAL;
   const tenure = tenureFor(h.town || h.name);
@@ -761,6 +791,110 @@ function HoodCard({ h, rank, dp, rate, term, expanded, onToggle, onEdit, onDelet
               </div>
             );
           })}
+          <div style={{ marginTop: 4, paddingTop: 10, borderTop: `1px dashed ${LINE}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: .5, color: SLATE, opacity: .7 }}>YOUR VISIT NOTES</div>
+              <div style={{ fontSize: 10.5, color: SLATE, opacity: .6, display: "flex", alignItems: "center", gap: 4 }}>
+                <Check size={11} /> Saved on this device
+              </div>
+            </div>
+            <textarea
+              value={note}
+              onChange={(e) => onNote(e.target.value)}
+              placeholder={`What did you notice about ${h.town || h.name}? Traffic, noise, the feel of the streets, anything you want to remember.`}
+              rows={3}
+              style={{ width: "100%", boxSizing: "border-box", background: PAPER, border: `1px solid ${LINE}`, borderRadius: 8, color: INK, padding: "8px 10px", fontSize: 13, fontFamily: "inherit", lineHeight: 1.5, resize: "vertical" }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Map view (places as pins) ---------------- */
+// Loads Leaflet once from a CDN (free OpenStreetMap tiles, no API key) and
+// plots each place as a score-colored pin. Places without coordinates are
+// listed below the map so nothing silently disappears.
+function MapView({ scored, workCoords, dark }) {
+  const elRef = useRef(null);
+  const mapRef = useRef(null);
+  const [ready, setReady] = useState(typeof window !== "undefined" && window.L);
+
+  const withCoords = scored.map((h) => ({ h, c: h.coords || TOWN_COORDS[NORM(h.town || h.name)] || null })).filter((x) => x.c);
+  const without = scored.filter((h) => !(h.coords || TOWN_COORDS[NORM(h.town || h.name)]));
+
+  // Load Leaflet's CSS + JS from the CDN a single time.
+  useEffect(() => {
+    if (window.L) { setReady(true); return; }
+    if (!document.getElementById("leaflet-css")) {
+      const link = document.createElement("link");
+      link.id = "leaflet-css";
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(link);
+    }
+    if (!document.getElementById("leaflet-js")) {
+      const s = document.createElement("script");
+      s.id = "leaflet-js";
+      s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+      s.onload = () => setReady(true);
+      document.body.appendChild(s);
+    } else {
+      document.getElementById("leaflet-js").addEventListener("load", () => setReady(true));
+    }
+  }, []);
+
+  // Build / rebuild the map when ready or when the places change.
+  useEffect(() => {
+    if (!ready || !window.L || !elRef.current) return;
+    const L = window.L;
+    if (!mapRef.current) {
+      mapRef.current = L.map(elRef.current, { scrollWheelZoom: false, attributionControl: true });
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution: '&copy; OpenStreetMap contributors',
+      }).addTo(mapRef.current);
+    }
+    const map = mapRef.current;
+    // Clear old markers.
+    map.eachLayer((layer) => { if (layer instanceof L.Marker || layer instanceof L.CircleMarker) map.removeLayer(layer); });
+
+    const pts = [];
+    withCoords.forEach(({ h, c }, i) => {
+      const color = h.score >= 75 ? "#1FA98F" : h.score >= 50 ? "#F2B441" : "#FF5A4D";
+      const marker = L.circleMarker([c[0], c[1]], {
+        radius: i === 0 ? 13 : 10,
+        fillColor: color, color: "#fff", weight: 2, fillOpacity: 0.95,
+      }).addTo(map);
+      marker.bindPopup(`<b>${h.name}</b><br>Match score ${h.score}${i === 0 ? " · Best" : ""}<br>${fmtMoney(h.price)}`);
+      marker.bindTooltip(String(h.score), { permanent: true, direction: "center", className: "nf-map-score" });
+      pts.push([c[0], c[1]]);
+    });
+
+    if (workCoords) {
+      const w = L.circleMarker([workCoords[0], workCoords[1]], {
+        radius: 8, fillColor: "#16263F", color: "#fff", weight: 2, fillOpacity: 1,
+      }).addTo(map);
+      w.bindPopup("<b>Your work</b>");
+      pts.push([workCoords[0], workCoords[1]]);
+    }
+
+    if (pts.length === 1) map.setView(pts[0], 11);
+    else if (pts.length > 1) map.fitBounds(pts, { padding: [40, 40] });
+    setTimeout(() => map.invalidateSize(), 100); // settle after layout
+  }, [ready, scored, workCoords]);
+
+  return (
+    <div className="nf-pop" style={{ background: SURF, border: `1px solid ${LINE}`, borderRadius: 16, overflow: "hidden" }}>
+      <div style={{ padding: "8px 14px", fontSize: 12, color: SLATE, borderBottom: `1px solid ${LINE}`, display: "flex", alignItems: "center", gap: 6 }}>
+        <Info size={13} /> Your places, mapped. Pin color shows match score; the dark pin is your work. Tap a pin for details.
+      </div>
+      <div ref={elRef} style={{ height: "60vh", width: "100%", background: dark ? "#0F1722" : "#e8eef2" }} />
+      {!ready && <div style={{ padding: 16, fontSize: 13, color: SLATE }}>Loading map…</div>}
+      {without.length > 0 && (
+        <div style={{ padding: "10px 14px", fontSize: 12.5, color: SLATE, borderTop: `1px solid ${LINE}` }}>
+          Not mapped (no location found yet): {without.map((h) => h.name).join(", ")}. Re-add with AI fill to place them.
         </div>
       )}
     </div>
