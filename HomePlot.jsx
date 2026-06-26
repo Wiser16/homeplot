@@ -107,7 +107,7 @@ const LOCAL_ESTIMATES = {
   "manhattan beach":{ price: 2600000, own: 65, note: "Premier beach, top schools",       r: [10,10,10,10,8,8,6,8,10,6,8,10,8] },
   "hermosa beach":  { price: 1900000, own: 51, note: "Lively beach community",           r: [8,8,8,6,6,10,6,10,10,6,8,10,8] },
   "torrance":       { price: 1050000, own: 55, note: "Solid value, good schools",        r: [8,8,8,8,8,8,8,6,6,6,8,10,6] },
-  "woodland hills": { price: 1080000, own: 54, note: "Big lots, great retail",           r: [8,8,8,8,10,10,10,4,2,6,4,8,8] },
+  "woodland hills": { price: 1080000, own: 54, note: "Big lots, great retail, Rams HQ",    r: [8,8,8,8,10,10,10,7.5,6,6,4,8,8] },
   "calabasas":      { price: 1750000, own: 69, note: "Upscale suburb, top schools",      r: [10,10,10,10,10,8,10,4,2,6,4,8,8] },
   "santa monica":   { price: 2200000, own: 28, note: "Coastal city, walkable",           r: [8,6,6,6,8,10,4,10,10,6,8,10,10] },
   "culver city":    { price: 1500000, own: 55, note: "Central, creative, walkable",      r: [8,6,8,8,6,10,6,8,6,6,8,10,10] },
