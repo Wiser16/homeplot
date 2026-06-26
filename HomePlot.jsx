@@ -535,9 +535,9 @@ export default function NeighborhoodFit() {
               <MapPin size={26} color={CORAL} />
             </div>
             <h2 className="nf-display" style={{ fontSize: 26, fontWeight: 800, margin: "0 0 4px" }}>Plot Your Perfect Neighborhood</h2>
-            <p className="nf-display" style={{ fontSize: 15, fontWeight: 700, color: TEAL, margin: "0 0 10px", letterSpacing: .2 }}>Your priorities. Better matches. Side by side.</p>
+            <p className="nf-display" style={{ fontSize: 15, fontWeight: 700, color: TEAL, margin: "0 0 10px", letterSpacing: .2 }}>Your places. Your priorities. Side by side.</p>
             <p style={{ color: INK, maxWidth: 460, margin: "0 auto 10px", fontSize: 15, fontWeight: 600, lineHeight: 1.5 }}>
-              Score and compare the towns you're weighing, ranked by what matters to <i>you</i>.
+              Score and rank the towns you're weighing by what matters to <i>you</i>.
             </p>
             <p style={{ color: SLATE, maxWidth: 460, margin: "0 auto 18px", fontSize: 14, lineHeight: 1.55 }}>
               Backed by real data from the Census, USGS, FEMA, and more. Add a place to start, or let AI fill it in.
