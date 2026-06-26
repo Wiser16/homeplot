@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Plus, X, Crown, Trash2, Pencil, SlidersHorizontal,
   MapPin, RotateCcw, Sparkles, ChevronDown, ChevronUp, Wallet, Loader2,
-  List, Table, Trophy, ExternalLink, Moon, Sun, Check, Users, Info, Activity, Droplets, CloudSun, Wind
+  List, Table, Trophy, ExternalLink, Moon, Sun, Check, Users, Info, Activity, Droplets, CloudSun, Wind, ChevronLeft, ChevronRight
 } from "lucide-react";
 
 /* ----------------------------------------------------------------
@@ -54,7 +54,7 @@ const DIMENSIONS = [
   { key: "suburbGreen",   label: "Suburb & green", w: 100, blurb: "Green space, suburban feel" },
   { key: "retailDining",  label: "Retail & dining", w: 100, blurb: "Shops, restaurants, services" },
   { key: "lotYard",       label: "Lot & yard",     w: 100, blurb: "Home and lot size for the money" },
-  { key: "walk",          label: "Walkability",    w: 20, blurb: "Walk / bike / transit" },
+  { key: "walk",          label: "Walkability",    w: 10, blurb: "Walk / bike / transit" },
   { key: "beach",         label: "Beach / coastal", w: 20, blurb: "Closeness to the coast" },
   { key: "earthquake",    label: "Quake safety",   w: 80, blurb: "Lower seismic risk" },
   { key: "fire",          label: "Fire safety",    w: 40, blurb: "Lower wildfire risk" },
@@ -320,7 +320,12 @@ export default function NeighborhoodFit() {
     const b = Number(budget) || 0;
     const list = hoods.map((h) => {
       const manualMi = (h.miles != null && h.miles !== "") ? Number(h.miles) : null;
-      const effMiles = manualMi != null ? manualMi : autoMiles(workCoords, h.town);
+      // Prefer a typed-in distance; otherwise measure from the work ZIP to the
+      // place's own coordinates (works for any town, not just built-in ones),
+      // falling back to the built-in table only if needed.
+      const placeCoords = h.coords || TOWN_COORDS[NORM(h.town)] || null;
+      const autoMi = workCoords && placeCoords ? Math.round(haversineMi(workCoords, placeCoords) * ROAD_FACTOR) : autoMiles(workCoords, h.town);
+      const effMiles = manualMi != null ? manualMi : autoMi;
       const dimScores = {};
       DIMENSIONS.forEach((d) => {
         if (d.auto === "price") dimScores[d.key] = affordabilityScore(Number(h.price), b);
@@ -871,15 +876,21 @@ function CompareView({ scored }) {
   const best = { background: "rgba(31,169,143,.14)" };
   const Tick = () => <Check size={12} color={TEAL} strokeWidth={3} style={{ verticalAlign: "middle", marginLeft: 4 }} />;
   const many = scored.length > 4;
+  const scrollRef = useRef(null);
+  const nudge = (dir) => { const el = scrollRef.current; if (el) el.scrollBy({ left: dir * Math.max(220, el.clientWidth * 0.6), behavior: "smooth" }); };
 
   return (
-    <div className="nf-pop" style={{ background: SURF, border: `1px solid ${LINE}`, borderRadius: 16, overflow: "hidden" }}>
+    <div className="nf-pop" style={{ background: SURF, border: `1px solid ${LINE}`, borderRadius: 16, overflow: "hidden", position: "relative" }}>
       {many && (
-        <div style={{ padding: "8px 14px", fontSize: 12, color: SLATE, borderBottom: `1px solid ${LINE}`, display: "flex", alignItems: "center", gap: 6 }}>
-          <Info size={13} /> Scroll sideways to see all {scored.length} places. The name row and the labels stay pinned.
+        <div style={{ padding: "8px 14px", fontSize: 12, color: SLATE, borderBottom: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Info size={13} /> Showing all {scored.length} places. Names and labels stay pinned as you scroll.</span>
+          <span style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => nudge(-1)} className="nf-btn" aria-label="Scroll left" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 8, border: `1px solid ${LINE}`, background: SURF, color: INK, cursor: "pointer" }}><ChevronLeft size={16} /></button>
+            <button onClick={() => nudge(1)} className="nf-btn" aria-label="Scroll right" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 8, border: `1px solid ${LINE}`, background: SURF, color: INK, cursor: "pointer" }}><ChevronRight size={16} /></button>
+          </span>
         </div>
       )}
-      <div style={{ overflow: "auto", maxHeight: "72vh", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+      <div ref={scrollRef} style={{ overflow: "auto", maxHeight: "72vh", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
         <table style={{ borderCollapse: "separate", borderSpacing: 0, width: "100%" }}>
           <thead>
             <tr>
@@ -887,8 +898,8 @@ function CompareView({ scored }) {
               {scored.map((h, i) => (
                 <th key={h.id} style={{ ...cell, position: "sticky", top: 0, zIndex: 3, verticalAlign: "bottom", borderTop: "none", borderBottom: `1px solid ${LINE}`, background: i === 0 ? "#fbf4e3" : SURF }}>
                   {i === 0 && (
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 3, background: GOLD, color: ONGOLD, fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: 99, marginBottom: 6 }}>
-                      <Crown size={11} /> Best
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 3, background: GOLD, color: ONGOLD, fontSize: 12, fontWeight: 800, padding: "3px 9px", borderRadius: 99, marginBottom: 6 }}>
+                      <Crown size={12} /> Best
                     </div>
                   )}
                   <div className="nf-display" style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.15, color: i === 0 ? "#16263F" : "inherit" }}>{h.name}{(h.source === "ai" || h.source === "table") && <span title="Estimated, not verified" style={{ color: i === 0 ? "#b8860b" : GOLD, fontWeight: 800 }}>*</span>}</div>
