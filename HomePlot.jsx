@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Plus, X, Crown, Trash2, Pencil, SlidersHorizontal,
   MapPin, RotateCcw, Sparkles, ChevronDown, ChevronUp, Wallet, Loader2,
-  List, Table, Trophy, ExternalLink, Moon, Sun, Check, Users, Info, Activity, Droplets, CloudSun, Wind, ChevronLeft, ChevronRight, Download, Map as MapIcon
+  List, Table, Trophy, ExternalLink, Moon, Sun, Check, Users, Info, Activity, Droplets, CloudSun, Wind, ChevronLeft, ChevronRight, Download, Map as MapIcon, Star
 } from "lucide-react";
 
 /* ----------------------------------------------------------------
@@ -83,8 +83,29 @@ const INVESTOR_WEIGHTS = {
   familySafety: 40, suburbGreen: 40, retailDining: 60, lotYard: 80, walk: 60,
   beach: 40, earthquake: 80, fire: 80, weather: 20, culture: 40,
 };
+// Family: schools, safety, and space matter most.
+const FAMILY_WEIGHTS = {
+  affordability: 60, commute: 40, schools: 100, schoolAccess: 100, safety: 100,
+  familySafety: 100, suburbGreen: 80, retailDining: 40, lotYard: 80, walk: 20,
+  beach: 20, earthquake: 60, fire: 60, weather: 40, culture: 20,
+};
+// Young professional: commute, walkability, dining, and price.
+const YOUNGPRO_WEIGHTS = {
+  affordability: 80, commute: 80, schools: 10, schoolAccess: 10, safety: 60,
+  familySafety: 20, suburbGreen: 40, retailDining: 100, lotYard: 20, walk: 100,
+  beach: 60, earthquake: 40, fire: 40, weather: 60, culture: 100,
+};
+// Retiree: safety, low-maintenance, weather, walkability, healthcare-adjacent calm.
+const RETIREE_WEIGHTS = {
+  affordability: 80, commute: 10, schools: 10, schoolAccess: 10, safety: 100,
+  familySafety: 40, suburbGreen: 80, retailDining: 60, lotYard: 40, walk: 80,
+  beach: 60, earthquake: 80, fire: 80, weather: 100, culture: 60,
+};
 const PERSONAS = [
-  { key: "resident", label: "Resident", blurb: "You'll live here", weights: RESIDENT_WEIGHTS },
+  { key: "resident", label: "Balanced", blurb: "A bit of everything", weights: RESIDENT_WEIGHTS },
+  { key: "family", label: "Family", blurb: "Schools & safety first", weights: FAMILY_WEIGHTS },
+  { key: "youngpro", label: "Young professional", blurb: "Commute, walk, nightlife", weights: YOUNGPRO_WEIGHTS },
+  { key: "retiree", label: "Retiree", blurb: "Calm, safe, walkable", weights: RETIREE_WEIGHTS },
   { key: "investor", label: "Investor", blurb: "You'll rent it out", weights: INVESTOR_WEIGHTS },
 ];
 
@@ -240,9 +261,12 @@ export default function NeighborhoodFit() {
   const [persona, setPersona] = useState(saved?.persona ?? "resident");
   const [hoods, setHoods] = useState(saved?.hoods ?? []);
   const [notes, setNotes] = useState(saved?.notes ?? {}); // { [placeId]: "visit notes" }
+  const [favs, setFavs] = useState(saved?.favs ?? {}); // { [placeId]: true }
+  const [removed, setRemoved] = useState(saved?.removed ?? []); // recently removed places, newest first
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState(null);
   const [showWeights, setShowWeights] = useState(false);
+  const [showMethod, setShowMethod] = useState(false);
   const [showMortgage, setShowMortgage] = useState(false);
   const [expanded, setExpanded] = useState(null);
 
@@ -295,8 +319,8 @@ export default function NeighborhoodFit() {
 
   // Save durable user data whenever it changes (no-op where storage is blocked).
   useEffect(() => {
-    saveSaved({ hoods, notes, budget, workZip, workCoords, weights, persona, dp, credit, baseRate, term, forced });
-  }, [hoods, notes, budget, workZip, workCoords, weights, persona, dp, credit, baseRate, term, forced]);
+    saveSaved({ hoods, notes, favs, removed, budget, workZip, workCoords, weights, persona, dp, credit, baseRate, term, forced });
+  }, [hoods, notes, favs, removed, budget, workZip, workCoords, weights, persona, dp, credit, baseRate, term, forced]);
 
   // Geocode a US ZIP to coordinates for auto commute distance. Light,
   // CORS-friendly ZIP lookup; full address + real drive time live in backend.
@@ -385,6 +409,11 @@ export default function NeighborhoodFit() {
 
   const resetWeights = () => { setPersona("resident"); setWeights({ ...RESIDENT_WEIGHTS }); };
   const applyPreset = (p) => { setPersona(p.key); setWeights({ ...p.weights }); };
+  // Bring a removed place back, with a fresh id so it doesn't collide.
+  const restorePlace = (place) => {
+    setHoods((p) => [...p, { ...place, id: Date.now() }]);
+    setRemoved((r) => r.filter((x) => x.id !== place.id));
+  };
 
   // Clear the whole saved session and return to a clean slate. Confirms first so
   // it can't wipe someone's work by accident.
@@ -393,6 +422,8 @@ export default function NeighborhoodFit() {
     try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
     setHoods([]);
     setNotes({});
+    setFavs({});
+    setRemoved([]);
     setBudget("1000000");
     setWorkZip(""); setWorkCoords(null);
     setWeights({ ...RESIDENT_WEIGHTS }); setPersona("resident");
@@ -627,15 +658,16 @@ export default function NeighborhoodFit() {
               ))}
             </div>
             <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-              <button className="nf-btn" onClick={() => { setEditing(null); setShowAdd(true); }}
-                style={{ display: "inline-flex", alignItems: "center", gap: 7, background: CORAL, border: "none", borderRadius: 11, padding: "12px 20px", fontWeight: 700, color: "#fff", fontSize: 15, boxShadow: "0 2px 0 #d8463b" }}>
-                <Plus size={17} /> Add a place
-              </button>
               <button className="nf-btn" onClick={loadSample}
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, background: CORAL, border: "none", borderRadius: 11, padding: "12px 20px", fontWeight: 700, color: "#fff", fontSize: 15, boxShadow: "0 2px 0 #d8463b" }}>
+                <Sparkles size={17} /> See a live example
+              </button>
+              <button className="nf-btn" onClick={() => { setEditing(null); setShowAdd(true); }}
                 style={{ display: "inline-flex", alignItems: "center", gap: 7, background: SURF, border: `1px solid ${LINE}`, borderRadius: 11, padding: "12px 18px", fontWeight: 600, color: INK, fontSize: 15 }}>
-                <Sparkles size={16} color={GOLD} /> Try a sample
+                <Plus size={16} /> Add your own place
               </button>
             </div>
+            <div style={{ fontSize: 12.5, color: SLATE, marginTop: 12 }}>New here? Tap <b style={{ color: INK }}>See a live example</b> to load four LA towns, ranked, then change your priorities and watch them move.</div>
           </div>
         ) : (
           <>
@@ -679,10 +711,15 @@ export default function NeighborhoodFit() {
                     <HoodCard h={h} rank={i} topPlace={scored[0]} dp={dp} rate={rate} term={term}
                       note={notes[h.id] || ""}
                       onNote={(text) => setNotes((n) => ({ ...n, [h.id]: text }))}
+                      fav={!!favs[h.id]}
+                      onFav={() => setFavs((f) => ({ ...f, [h.id]: !f[h.id] }))}
                       expanded={expanded === h.id}
                       onToggle={() => setExpanded(expanded === h.id ? null : h.id)}
                       onEdit={() => { setEditing(h); setShowAdd(true); }}
-                      onDelete={() => setHoods((p) => p.filter((x) => x.id !== h.id))} />
+                      onDelete={() => {
+                        setHoods((p) => p.filter((x) => x.id !== h.id));
+                        setRemoved((r) => [h, ...r.filter((x) => x.id !== h.id)].slice(0, 8));
+                      }} />
                   </div>
                 ))}
               </div>
@@ -693,11 +730,27 @@ export default function NeighborhoodFit() {
                 <span>Scores marked with an asterisk are estimates, filled by a lookup, not confirmed against official records. Open Edit on any place to set your own numbers and the asterisk clears. The "Local data" section under each breakdown is real and cited: USGS earthquakes, FEMA flood, NOAA weather, and Census figures come straight from those official sources.</span>
               </div>
             )}
+            {removed.length > 0 && (
+              <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${LINE}` }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: .4, color: SLATE, opacity: .8, marginBottom: 8 }}>RECENTLY REMOVED · TAP TO RESTORE</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {removed.map((p) => (
+                    <button key={p.id} onClick={() => restorePlace(p)} className="nf-btn"
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, background: SURF, border: `1px solid ${LINE}`, borderRadius: 99, padding: "6px 12px", fontSize: 12.5, fontWeight: 600, color: INK, cursor: "pointer", fontFamily: "inherit" }}>
+                      <Plus size={13} color={TEAL} /> {p.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
       </main>
 
       <footer style={{ textAlign: "center", padding: "10px 20px 36px", fontSize: 12, color: SLATE }}>
+        <div style={{ marginBottom: 6 }}>
+          <button onClick={() => setShowMethod(true)} className="nf-btn" style={{ background: "none", border: "none", color: TEAL, fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>How scoring works</button>
+        </div>
         <div style={{ marginBottom: 4 }}>Real data from official public sources: U.S. Census, FEMA, USGS, and NOAA. Mortgage base rate live from Freddie Mac.</div>
         HomePlot · Plot your perfect neighborhood
       </footer>
@@ -706,13 +759,14 @@ export default function NeighborhoodFit() {
       {showAdd && <AddModal initial={editing} budget={budget}
         onClose={() => { setShowAdd(false); setEditing(null); }} onSave={upsert} />}
       {showWeights && <WeightsModal weights={weights} setWeights={setWeights} persona={persona} applyPreset={applyPreset} onReset={resetWeights} onClose={() => setShowWeights(false)} />}
+      {showMethod && <MethodModal onClose={() => setShowMethod(false)} />}
       {showMortgage && <MortgageModal dp={dp} setDp={setDp} credit={credit} setCredit={setCredit} baseRate={baseRate} setBaseRate={setBaseRate} term={term} setTerm={setTerm} rate={rate} budget={budget} rateInfo={rateInfo} onClose={() => setShowMortgage(false)} />}
     </div>
   );
 }
 
 /* ---------------- Card ---------------- */
-function HoodCard({ h, rank, topPlace, dp, rate, term, note, onNote, expanded, onToggle, onEdit, onDelete }) {
+function HoodCard({ h, rank, topPlace, dp, rate, term, note, onNote, fav, onFav, expanded, onToggle, onEdit, onDelete }) {
   const leader = rank === 0;
   const ringColor = h.score >= 75 ? TEAL : h.score >= 50 ? GOLD : CORAL;
   const tenure = tenureFor(h.town || h.name);
@@ -857,6 +911,7 @@ function HoodCard({ h, rank, topPlace, dp, rate, term, note, onNote, expanded, o
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <button className="nf-btn" onClick={onFav} title={fav ? "Remove favorite" : "Mark as favorite"} style={{ ...iconBtn, color: fav ? GOLD : SLATE }}><Star size={15} fill={fav ? GOLD : "none"} /></button>
           <button className="nf-btn" onClick={onEdit} title="Edit" style={iconBtn}><Pencil size={15} /></button>
           <button className="nf-btn" onClick={onDelete} title="Remove" style={iconBtn}><Trash2 size={15} /></button>
         </div>
@@ -1452,12 +1507,12 @@ function WeightsModal({ weights, setWeights, persona, applyPreset, onReset, onCl
         <ModalHead title="What matters to you" onClose={onClose} />
         <div style={{ padding: "4px 20px 8px" }}>
           <p style={{ fontSize: 13, color: SLATE, margin: "0 0 10px" }}>Pick a starting point, then slide each one up or down. Places re-rank instantly.</p>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             {PERSONAS.map((p) => {
               const active = persona === p.key;
               return (
                 <button key={p.key} onClick={() => applyPreset(p)} className="nf-btn"
-                  style={{ flex: 1, textAlign: "left", border: `1px solid ${active ? BRAND : LINE}`, background: active ? BRAND : SURF, color: active ? "#fff" : INK, borderRadius: 11, padding: "10px 12px", cursor: "pointer", fontFamily: "inherit" }}>
+                  style={{ textAlign: "left", border: `1px solid ${active ? BRAND : LINE}`, background: active ? BRAND : SURF, color: active ? "#fff" : INK, borderRadius: 11, padding: "10px 12px", cursor: "pointer", fontFamily: "inherit" }}>
                   <div style={{ fontWeight: 700, fontSize: 13.5 }}>{p.label}</div>
                   <div style={{ fontSize: 11.5, color: active ? "rgba(255,255,255,.85)" : SLATE, marginTop: 2 }}>{p.blurb}</div>
                 </button>
@@ -1594,6 +1649,37 @@ const inputStyle = { width: "100%", fontSize: 15, border: `1px solid ${LINE}`, b
 const ghostBtn = { display: "flex", alignItems: "center", gap: 7, background: SURF, border: `1px solid ${LINE}`, borderRadius: 10, padding: "9px 13px", fontWeight: 600, fontSize: 14, color: INK };
 const iconBtn = { background: PAPER, border: `1px solid ${LINE}`, borderRadius: 8, padding: 7, color: SLATE, cursor: "pointer" };
 const modalStyle = { background: SURF, width: "100%", maxWidth: 470, maxHeight: "88vh", borderRadius: 20, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 60px rgba(20,35,63,.32)" };
+/* ---------------- How scoring works ---------------- */
+function MethodModal({ onClose }) {
+  const Item = ({ title, children }) => (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontWeight: 700, fontSize: 14, color: INK, marginBottom: 3 }}>{title}</div>
+      <div style={{ fontSize: 13, color: SLATE, lineHeight: 1.5 }}>{children}</div>
+    </div>
+  );
+  return (
+    <Overlay onClose={onClose}>
+      <div className="nf-pop" style={modalStyle}>
+        <ModalHead title="How scoring works" onClose={onClose} />
+        <div style={{ padding: "0 20px 20px", overflowY: "auto" }}>
+          <Item title="It's your ranking, not a generic one">
+            Every place gets a match score from 0 to 100. That score is a weighted average of 15 factors, and you control the weights. Slide a priority up and places re-rank instantly, so the order reflects what matters to <i>you</i>, not a fixed formula.
+          </Item>
+          <Item title="Where the numbers come from">
+            Affordability is computed from each place's price against your budget. Commute is computed from real distance to your work ZIP. Some factor ratings (schools, safety, lifestyle) start as estimates, marked with a gold asterisk. Open Edit on any place to set your own number, and the asterisk clears.
+          </Item>
+          <Item title="What's real, cited data">
+            Under each place's breakdown, the Local Data section pulls live from official sources: USGS (earthquake history), FEMA (flood zones), NOAA (weather), and the U.S. Census (demographics, property tax). The mortgage base rate is live from Freddie Mac. These are never estimates.
+          </Item>
+          <Item title="The honest part">
+            Estimates are always labeled, real data is always cited, and nothing is hidden. The goal is a tool you can trust, where you can see exactly why a place ranked where it did, and adjust anything that doesn't match what you know.
+          </Item>
+          <button onClick={onClose} style={{ width: "100%", background: TEAL, color: "#fff", border: "none", borderRadius: 10, padding: "11px", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "inherit", marginTop: 4 }}>Got it</button>
+        </div>
+      </div>
+    </Overlay>
+  );
+}
 function ModalHead({ title, onClose }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px 10px" }}>
