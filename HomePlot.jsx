@@ -432,17 +432,26 @@ export default function NeighborhoodFit() {
       ? `<strong>${esc(leadName)}</strong> is the best match, scoring ${lead.score}, against your priorities: ${esc(top.join(", "))}.`
       : `${esc(leadName)} scored ${lead.score} against your priorities: ${esc(top.join(", "))}.`;
 
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>HomePlot Comparison</title>
+    const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>HomePlot Comparison</title>
       <style>
         @page { margin: 14mm; }
-        body { font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color: #16263F; margin: 0; }
+        body { font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color: #16263F; margin: 0; padding: 16px; }
         h1 { font-size: 22px; margin: 0 0 2px; }
         .sub { color: #5b6b7d; font-size: 12px; margin-bottom: 14px; }
         .verdict { background: #f7f3e8; border-left: 4px solid #F2B441; padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 16px; }
         table { border-collapse: collapse; width: 100%; font-size: 11px; }
         th { text-align: center; }
         .foot { margin-top: 18px; font-size: 10px; color: #889; }
+        .bar { position: sticky; top: 0; display: flex; gap: 10px; justify-content: space-between; align-items: center; background: #16263F; color: #fff; padding: 10px 14px; margin: -16px -16px 16px; }
+        .bar button { font: inherit; font-size: 14px; font-weight: 700; border: none; border-radius: 8px; padding: 9px 16px; cursor: pointer; }
+        .bar .print { background: #1FA98F; color: #fff; }
+        .bar .back { background: rgba(255,255,255,.15); color: #fff; }
+        @media print { .bar { display: none; } body { padding: 0; } }
       </style></head><body>
+      <div class="bar">
+        <button class="back" onclick="window.close(); history.length>1 && history.back();">&larr; Back to HomePlot</button>
+        <button class="print" onclick="window.print()">Save / Print PDF</button>
+      </div>
       <h1>HomePlot — Neighborhood Comparison</h1>
       <div class="sub">Your priorities, ranked. Generated ${dateStr} · budget ${fmtMoney(Number(budget) || 0)}</div>
       <div class="verdict">${verdict}</div>
@@ -465,7 +474,7 @@ export default function NeighborhoodFit() {
       w.document.write(html);
       w.document.close();
       w.focus();
-      setTimeout(() => { w.print(); flash("Opened PDF"); }, 300);
+      flash("Opened PDF");
     } catch {
       flash("Couldn't open");
     }
