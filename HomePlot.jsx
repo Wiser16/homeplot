@@ -267,6 +267,7 @@ export default function NeighborhoodFit() {
   const [editing, setEditing] = useState(null);
   const [showWeights, setShowWeights] = useState(false);
   const [showMethod, setShowMethod] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   const [showMortgage, setShowMortgage] = useState(false);
   const [expanded, setExpanded] = useState(null);
 
@@ -748,8 +749,9 @@ export default function NeighborhoodFit() {
       </main>
 
       <footer style={{ textAlign: "center", padding: "10px 20px 36px", fontSize: 12, color: SLATE }}>
-        <div style={{ marginBottom: 6 }}>
+        <div style={{ marginBottom: 6, display: "flex", gap: 16, justifyContent: "center" }}>
           <button onClick={() => setShowMethod(true)} className="nf-btn" style={{ background: "none", border: "none", color: TEAL, fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>How scoring works</button>
+          <button onClick={() => setShowFeedback(true)} className="nf-btn" style={{ background: "none", border: "none", color: TEAL, fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>Send feedback</button>
         </div>
         <div style={{ marginBottom: 4 }}>Real data from official public sources: U.S. Census, FEMA, USGS, and NOAA. Mortgage base rate live from Freddie Mac.</div>
         HomePlot · Plot your perfect neighborhood
@@ -760,6 +762,7 @@ export default function NeighborhoodFit() {
         onClose={() => { setShowAdd(false); setEditing(null); }} onSave={upsert} />}
       {showWeights && <WeightsModal weights={weights} setWeights={setWeights} persona={persona} applyPreset={applyPreset} onReset={resetWeights} onClose={() => setShowWeights(false)} />}
       {showMethod && <MethodModal onClose={() => setShowMethod(false)} />}
+      {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
       {showMortgage && <MortgageModal dp={dp} setDp={setDp} credit={credit} setCredit={setCredit} baseRate={baseRate} setBaseRate={setBaseRate} term={term} setTerm={setTerm} rate={rate} budget={budget} rateInfo={rateInfo} onClose={() => setShowMortgage(false)} />}
     </div>
   );
@@ -1649,6 +1652,48 @@ const inputStyle = { width: "100%", fontSize: 15, border: `1px solid ${LINE}`, b
 const ghostBtn = { display: "flex", alignItems: "center", gap: 7, background: SURF, border: `1px solid ${LINE}`, borderRadius: 10, padding: "9px 13px", fontWeight: 600, fontSize: 14, color: INK };
 const iconBtn = { background: PAPER, border: `1px solid ${LINE}`, borderRadius: 8, padding: 7, color: SLATE, cursor: "pointer" };
 const modalStyle = { background: SURF, width: "100%", maxWidth: 470, maxHeight: "88vh", borderRadius: 20, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 60px rgba(20,35,63,.32)" };
+/* ---------------- Feedback (copy to clipboard, no email exposed) ---------------- */
+function FeedbackModal({ onClose }) {
+  const [text, setText] = useState("");
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    const body = `HomePlot feedback:\n\n${text.trim()}\n\n(Sent from homeplotapp.com)`;
+    try {
+      await navigator.clipboard.writeText(body);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2200);
+    } catch {
+      // Fallback: select the textarea so the user can copy manually.
+      const el = document.getElementById("fb-text");
+      if (el) { el.focus(); el.select(); }
+    }
+  };
+  return (
+    <Overlay onClose={onClose}>
+      <div className="nf-pop" style={modalStyle}>
+        <ModalHead title="Send feedback" onClose={onClose} />
+        <div style={{ padding: "0 20px 20px" }}>
+          <p style={{ fontSize: 13, color: SLATE, lineHeight: 1.5, marginTop: 0 }}>
+            What's working, what's confusing, what you wish it did? Write it below, tap Copy, and paste it into an email, text, or message to whoever shared HomePlot with you. Thanks for helping make it better.
+          </p>
+          <textarea
+            id="fb-text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Your thoughts, ideas, or anything that felt off…"
+            rows={6}
+            style={{ width: "100%", boxSizing: "border-box", background: PAPER, border: `1px solid ${LINE}`, borderRadius: 10, color: INK, padding: "10px 12px", fontSize: 14, fontFamily: "inherit", lineHeight: 1.5, resize: "vertical", marginBottom: 12 }}
+          />
+          <button onClick={copy} disabled={!text.trim()}
+            style={{ width: "100%", background: text.trim() ? TEAL : LINE, color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontWeight: 700, fontSize: 14, cursor: text.trim() ? "pointer" : "default", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+            {copied ? <><Check size={16} strokeWidth={3} /> Copied — now paste it to send</> : <>Copy my feedback</>}
+          </button>
+        </div>
+      </div>
+    </Overlay>
+  );
+}
+
 /* ---------------- How scoring works ---------------- */
 function MethodModal({ onClose }) {
   const Item = ({ title, children }) => (
