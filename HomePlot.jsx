@@ -692,7 +692,7 @@ export default function NeighborhoodFit() {
             {scored.length >= 2 && (
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
                 <div style={{ display: "inline-flex", background: SURF, border: `1px solid ${LINE}`, borderRadius: 11, padding: 3, gap: 3 }}>
-                  {[["ranked", "Ranked", List], ["compare", "Compare", Table], ["map", "Map", MapIcon]].map(([key, label, Icon]) => (
+                  {[["ranked", "Ranked", List], ["compare", "Compare", Table], ["map", "Map", MapIcon], ["radar", "Radar", Activity]].map(([key, label, Icon]) => (
                     <button key={key} onClick={() => setView(key)} className="nf-btn"
                       style={{ display: "flex", alignItems: "center", gap: 6, border: "none", borderRadius: 8, padding: "8px 18px", fontWeight: 600, fontSize: 13.5, fontFamily: "inherit", cursor: "pointer", background: view === key ? TEAL : "transparent", color: view === key ? "#fff" : SLATE }}>
                       <Icon size={15} /> {label}
@@ -705,6 +705,8 @@ export default function NeighborhoodFit() {
               <CompareView scored={scored} />
             ) : view === "map" && scored.length >= 2 ? (
               <MapView scored={scored} workCoords={workCoords} dark={dark} />
+            ) : view === "radar" && scored.length >= 2 ? (
+              <RadarView scored={scored} dark={dark} />
             ) : (
               <div className="nf-cards">
                 {scored.map((h, i) => (
@@ -1078,6 +1080,97 @@ function MapView({ scored, workCoords, dark }) {
         <div style={{ padding: "10px 14px", fontSize: 12.5, color: SLATE, borderTop: `1px solid ${LINE}` }}>
           Not mapped (no location found yet): {without.map((h) => h.name).join(", ")}. Re-add with AI fill to place them.
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Radar view (shape-at-a-glance comparison) ---------------- */
+// A pure-SVG radar so the app stays lean. Users toggle towns on and off, and it
+// opens showing just the top few so it never starts as an unreadable tangle.
+function RadarView({ scored, dark }) {
+  // Use the same key factors as the cards, in a fixed order around the wheel.
+  const axes = DIMENSIONS;
+  const palette = ["#1FA98F", "#F2B441", "#FF5A4D", "#5B8DEF", "#A877E6", "#E67FB0", "#6BBF59", "#E89B3B"];
+  // Default to the top 3 ranked places so it opens clean.
+  const [on, setOn] = useState(() => {
+    const init = {};
+    scored.forEach((h, i) => { init[h.id] = i < 3; });
+    return init;
+  });
+  const toggle = (id) => setOn((o) => ({ ...o, [id]: !o[id] }));
+  const showAll = () => setOn(Object.fromEntries(scored.map((h) => [h.id, true])));
+  const clearAll = () => setOn(Object.fromEntries(scored.map((h) => [h.id, false])));
+
+  const size = 320, cx = size / 2, cy = size / 2, R = size / 2 - 38;
+  const N = axes.length;
+  const angle = (i) => (Math.PI * 2 * i) / N - Math.PI / 2;
+  const pt = (i, r) => [cx + Math.cos(angle(i)) * R * r, cy + Math.sin(angle(i)) * R * r];
+  const gridColor = dark ? "#36465A" : "#E2E8EE";
+  const labelColor = dark ? "#9FB0C3" : "#5b6b7d";
+
+  const rings = [0.25, 0.5, 0.75, 1];
+  const colorFor = (idx) => palette[idx % palette.length];
+
+  const shown = scored.filter((h) => on[h.id]);
+
+  return (
+    <div className="nf-pop" style={{ background: SURF, border: `1px solid ${LINE}`, borderRadius: 16, overflow: "hidden" }}>
+      <div style={{ padding: "10px 14px", borderBottom: `1px solid ${LINE}` }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+          <div className="nf-display" style={{ fontSize: 15, fontWeight: 800 }}>Score Radar</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={showAll} className="nf-btn" style={{ fontSize: 12, fontWeight: 600, border: `1px solid ${LINE}`, background: SURF, color: INK, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit" }}>Show all</button>
+            <button onClick={clearAll} className="nf-btn" style={{ fontSize: 12, fontWeight: 600, border: `1px solid ${LINE}`, background: SURF, color: INK, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit" }}>Clear</button>
+          </div>
+        </div>
+        <div style={{ fontSize: 12, color: SLATE, marginTop: 4 }}>Tap a town to show or hide its shape. Each spoke is a factor, further out is a higher score.</div>
+      </div>
+
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "10px 14px 0" }}>
+        {scored.map((h, idx) => {
+          const active = on[h.id];
+          return (
+            <button key={h.id} onClick={() => toggle(h.id)} className="nf-btn"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${active ? colorFor(idx) : LINE}`, background: active ? colorFor(idx) : "transparent", color: active ? "#fff" : SLATE, borderRadius: 99, padding: "4px 11px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+              <span style={{ width: 8, height: 8, borderRadius: 99, background: active ? "#fff" : colorFor(idx) }} />
+              {h.town || h.name} · {h.score}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "center", padding: "8px 10px 18px" }}>
+        <svg viewBox={`0 0 ${size} ${size}`} style={{ width: "100%", maxWidth: 440 }}>
+          {/* grid rings */}
+          {rings.map((r, ri) => (
+            <polygon key={ri}
+              points={axes.map((_, i) => pt(i, r).join(",")).join(" ")}
+              fill="none" stroke={gridColor} strokeWidth="1" />
+          ))}
+          {/* spokes + labels */}
+          {axes.map((d, i) => {
+            const [x, y] = pt(i, 1);
+            const [lx, ly] = pt(i, 1.16);
+            return (
+              <g key={d.key}>
+                <line x1={cx} y1={cy} x2={x} y2={y} stroke={gridColor} strokeWidth="1" />
+                <text x={lx} y={ly} fontSize="8.5" fill={labelColor} textAnchor="middle" dominantBaseline="middle" fontWeight="600">{d.label}</text>
+              </g>
+            );
+          })}
+          {/* place shapes */}
+          {scored.map((h, idx) => {
+            if (!on[h.id]) return null;
+            const col = colorFor(idx);
+            const pts = axes.map((d, i) => pt(i, Math.max(0, Math.min(1, (h.dimScores[d.key] || 0) / 100)))).map((p) => p.join(",")).join(" ");
+            return <polygon key={h.id} points={pts} fill={col} fillOpacity="0.12" stroke={col} strokeWidth="2" />;
+          })}
+        </svg>
+      </div>
+
+      {shown.length === 0 && (
+        <div style={{ padding: "0 14px 16px", fontSize: 13, color: SLATE, textAlign: "center" }}>Tap a town above to show its shape.</div>
       )}
     </div>
   );
