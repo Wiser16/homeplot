@@ -1102,12 +1102,14 @@ function RadarView({ scored, dark }) {
   const showAll = () => setOn(Object.fromEntries(scored.map((h) => [h.id, true])));
   const clearAll = () => setOn(Object.fromEntries(scored.map((h) => [h.id, false])));
 
-  const size = 320, cx = size / 2, cy = size / 2, R = size / 2 - 38;
+  const size = 360, cx = size / 2, cy = size / 2, R = size / 2 - 54;
   const N = axes.length;
   const angle = (i) => (Math.PI * 2 * i) / N - Math.PI / 2;
   const pt = (i, r) => [cx + Math.cos(angle(i)) * R * r, cy + Math.sin(angle(i)) * R * r];
   const gridColor = dark ? "#36465A" : "#E2E8EE";
   const labelColor = dark ? "#9FB0C3" : "#5b6b7d";
+  // Anchor labels by which side of the wheel they're on, so edge labels don't clip.
+  const anchorFor = (i) => { const x = Math.cos(angle(i)); return x > 0.3 ? "start" : x < -0.3 ? "end" : "middle"; };
 
   const rings = [0.25, 0.5, 0.75, 1];
   const colorFor = (idx) => palette[idx % palette.length];
@@ -1141,7 +1143,7 @@ function RadarView({ scored, dark }) {
       </div>
 
       <div style={{ display: "flex", justifyContent: "center", padding: "8px 10px 18px" }}>
-        <svg viewBox={`0 0 ${size} ${size}`} style={{ width: "100%", maxWidth: 440 }}>
+        <svg viewBox={`-44 0 ${size + 88} ${size}`} style={{ width: "100%", maxWidth: 480 }}>
           {/* grid rings */}
           {rings.map((r, ri) => (
             <polygon key={ri}
@@ -1151,11 +1153,11 @@ function RadarView({ scored, dark }) {
           {/* spokes + labels */}
           {axes.map((d, i) => {
             const [x, y] = pt(i, 1);
-            const [lx, ly] = pt(i, 1.16);
+            const [lx, ly] = pt(i, 1.14);
             return (
               <g key={d.key}>
                 <line x1={cx} y1={cy} x2={x} y2={y} stroke={gridColor} strokeWidth="1" />
-                <text x={lx} y={ly} fontSize="8.5" fill={labelColor} textAnchor="middle" dominantBaseline="middle" fontWeight="600">{d.label}</text>
+                <text x={lx} y={ly} fontSize="9" fill={labelColor} textAnchor={anchorFor(i)} dominantBaseline="middle" fontWeight="600">{d.label}</text>
               </g>
             );
           })}
