@@ -960,6 +960,14 @@ function HoodCard({ h, rank, topPlace, dp, rate, term, note, onNote, fav, onFav,
               </div>
             );
           })}
+          <div style={{ marginTop: 6, paddingTop: 10, borderTop: `1px dashed ${LINE}`, fontSize: 12, color: SLATE, lineHeight: 1.5 }}>
+            <span style={{ color: GOLD, fontWeight: 800 }}>*</span> Safety and family-safety here are general estimates, not crime data. For official figures, {" "}
+            <a
+              href={`https://www.google.com/search?q=${encodeURIComponent((h.town || h.name) + " " + (h.state || "") + " police department crime statistics")}`}
+              target="_blank" rel="noopener noreferrer"
+              style={{ color: TEAL, fontWeight: 700, textDecoration: "underline" }}
+            >check official crime stats for {h.town || h.name}</a>.
+          </div>
           <div style={{ marginTop: 4, paddingTop: 10, borderTop: `1px dashed ${LINE}` }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: .5, color: SLATE, opacity: .7 }}>YOUR VISIT NOTES</div>
