@@ -392,20 +392,28 @@ export default function NeighborhoodFit() {
   };
 
   const loadSample = () => {
-    setBudget("1500000");
-    // A real run off the built-in data: four LA-area towns, with realistic
-    // driving distances from El Segundo and the curated 0-10 ratings. Marked
-    // as table estimates, so they carry the asterisk and Census tenure.
+    setBudget("900000");
+    // A national, lifestyle-diverse example so first-time users see HomePlot works
+    // anywhere, not just one region. Each town represents a different buyer type.
+    // Ratings are 0-10 in RATED order:
+    // [safety, familySafety, schools, schoolAccess, suburbGreen, retailDining,
+    //  lotYard, culture, walk, earthquake, fire, beach, weather]
+    // Marked source:"table" so they carry the estimate asterisk, honest by default.
     const picks = [
-      { town: "El Segundo", miles: 1 },
-      { town: "Redondo Beach", miles: 5 },
-      { town: "Santa Monica", miles: 12 },
-      { town: "Woodland Hills", miles: 21 },
+      { town: "Irvine", state: "CA", price: 1250000, note: "Top schools, planned & family-friendly",
+        coords: [33.6846, -117.8265], r: [9, 9, 10, 9, 8, 8, 6, 6, 5, 5, 7, 6, 9] },
+      { town: "Austin", state: "TX", price: 650000, note: "Fast-growing, jobs & live music",
+        coords: [30.2672, -97.7431], r: [7, 7, 7, 7, 7, 9, 8, 9, 6, 9, 7, 3, 6] },
+      { town: "Scottsdale", state: "AZ", price: 850000, note: "Resort lifestyle, great for retirees",
+        coords: [33.4942, -111.9261], r: [8, 7, 7, 7, 8, 9, 8, 7, 5, 9, 7, 2, 7] },
+      { town: "Arlington", state: "VA", price: 800000, note: "Urban, walkable, short DC commute",
+        coords: [38.8816, -77.0910], r: [8, 8, 9, 8, 6, 9, 4, 8, 9, 9, 8, 3, 6] },
     ];
-    setHoods(picks.map((p, i) => {
-      const e = LOCAL_ESTIMATES[p.town.toLowerCase()];
-      return { id: i + 1, town: p.town, state: "CA", name: `${p.town}, CA`, price: e.price, miles: p.miles, note: e.note, ratings: mkRatings(e.r), source: "table", coords: TOWN_COORDS[p.town.toLowerCase()] || null };
-    }));
+    setWorkZip(""); setWorkCoords(null); // national sample: no single work anchor
+    setHoods(picks.map((p, i) => ({
+      id: i + 1, town: p.town, state: p.state, name: `${p.town}, ${p.state}`,
+      price: p.price, miles: null, note: p.note, ratings: mkRatings(p.r), source: "table", coords: p.coords,
+    })));
   };
 
   const resetWeights = () => { setPersona("resident"); setWeights({ ...RESIDENT_WEIGHTS }); };
