@@ -253,7 +253,7 @@ function saveSaved(data) {
 
 export default function NeighborhoodFit() {
   const [saved] = useState(loadSaved);
-  const [budget, setBudget] = useState(saved?.budget ?? "1000000");
+  const [budget, setBudget] = useState(saved?.budget ?? "750000");
   const [workZip, setWorkZip] = useState(saved?.workZip ?? "");
   const [workCoords, setWorkCoords] = useState(saved?.workCoords ?? null);
   const [workStatus, setWorkStatus] = useState("idle"); // idle | loading | ok | bad
@@ -439,7 +439,7 @@ export default function NeighborhoodFit() {
     setNotes({});
     setFavs({});
     setRemoved([]);
-    setBudget("1000000");
+    setBudget("750000");
     setWorkZip(""); setWorkCoords(null);
     setWeights({ ...RESIDENT_WEIGHTS }); setPersona("resident");
     setDp(20); setCredit("760");
@@ -602,7 +602,7 @@ export default function NeighborhoodFit() {
             <button className="nf-btn" onClick={() => setShowMortgage(true)} style={ghostBtn}>
               <Wallet size={16} /> Mortgage
             </button>
-            {(hoods.length > 0 || workZip || budget !== "1000000") && (
+            {(hoods.length > 0 || workZip || budget !== "750000") && (
               <span aria-hidden="true" style={{ width: 1, alignSelf: "stretch", background: LINE, margin: "2px 2px" }} />
             )}
             {hoods.length > 0 && (
@@ -610,7 +610,7 @@ export default function NeighborhoodFit() {
                 {exportMsg ? <><Check size={16} strokeWidth={3} /> {exportMsg}</> : <><Download size={16} /> Save PDF</>}
               </button>
             )}
-            {(hoods.length > 0 || workZip || budget !== "1000000") && (
+            {(hoods.length > 0 || workZip || budget !== "750000") && (
               <button className="nf-btn" onClick={resetAll} style={{ ...ghostBtn, color: SLATE, opacity: 0.8 }} title="Clear everything and start fresh">
                 <RotateCcw size={16} /> Reset
               </button>
@@ -627,7 +627,7 @@ export default function NeighborhoodFit() {
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ color: INK, fontWeight: 700 }}>$</span>
             <input id="budget-input" value={budget ? Number(budget).toLocaleString("en-US") : ""} onChange={(e) => setBudget(e.target.value.replace(/[^0-9]/g, ""))}
-              inputMode="numeric" placeholder="1,000,000"
+              inputMode="numeric" placeholder="750,000"
               style={{ width: 140, fontSize: 16, fontWeight: 800, border: `1px solid ${LINE}`, borderRadius: 8, padding: "7px 10px", color: INK, WebkitTextFillColor: INK, fontFamily: "inherit", background: SURF }} />
           </div>
           <span style={{ fontSize: 12.5, color: SLATE }}>Places at or under budget score full points on affordability.</span>
@@ -1347,6 +1347,23 @@ function CompareView({ scored }) {
   const nudge = (dir) => { const el = scrollRef.current; if (el) el.scrollBy({ left: dir * Math.max(220, el.clientWidth * 0.6), behavior: "smooth" }); };
   const [diffOnly, setDiffOnly] = useState(false);
 
+  // Fetch Census demographics for each place (informational only, never scored).
+  // Keyed by place id; each place resolves independently and may be unavailable.
+  const [demo, setDemo] = useState({}); // { [id]: censusData }
+  useEffect(() => {
+    let cancelled = false;
+    scored.forEach((h) => {
+      const c = h.coords || TOWN_COORDS[NORM(h.town || h.name)] || null;
+      if (!c) return;
+      fetch(`/api/census?lat=${c[0]}&lng=${c[1]}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (!cancelled && d && d.available) setDemo((prev) => ({ ...prev, [h.id]: d })); })
+        .catch(() => {});
+    });
+    return () => { cancelled = true; };
+  }, [scored.map((h) => h.id).join(",")]);
+  const anyDemo = scored.some((h) => demo[h.id]);
+
   return (
     <div className="nf-pop" style={{ background: SURF, border: `1px solid ${LINE}`, borderRadius: 16, overflow: "hidden", position: "relative" }}>
       <div style={{ padding: "12px 14px 10px", borderBottom: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
@@ -1435,7 +1452,41 @@ function CompareView({ scored }) {
             ))}
           </tbody>
         </table>
+        {anyDemo && (
+          <table style={{ borderCollapse: "collapse", width: "max-content", minWidth: "100%", marginTop: 4 }}>
+            <thead>
+              <tr>
+                <th style={{ ...rowLabel, background: PAPER, fontSize: 11, fontWeight: 700, letterSpacing: .4, color: SLATE, textTransform: "uppercase" }}>
+                  Census context
+                </th>
+                {scored.map((h) => (
+                  <th key={h.id} style={{ ...cell, background: PAPER, fontSize: 11, color: SLATE, fontWeight: 600 }}>{h.town || h.name}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ["Median household income", (d) => d.medianIncome != null ? `$${d.medianIncome.toLocaleString()}` : "—"],
+                ["Median age", (d) => d.medianAge != null ? d.medianAge : "—"],
+                ["Owner / renter", (d) => d.ownerPct != null ? `${d.ownerPct}% / ${d.renterPct}%` : "—"],
+                ["Median home value", (d) => d.medianHomeValue != null ? `$${d.medianHomeValue.toLocaleString()}` : "—"],
+              ].map(([label, fmt]) => (
+                <tr key={label}>
+                  <td style={{ ...rowLabel, fontSize: 12.5 }}>{label}</td>
+                  {scored.map((h) => (
+                    <td key={h.id} style={{ ...cell, fontSize: 13, color: INK }}>{demo[h.id] ? fmt(demo[h.id]) : "—"}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
+      {anyDemo && (
+        <div style={{ padding: "8px 14px", fontSize: 11.5, color: SLATE, opacity: .85, lineHeight: 1.5, borderTop: `1px dashed ${LINE}` }}>
+          Census context is shown for information only and is <b>not part of the match score</b>. Figures are U.S. Census Bureau American Community Survey estimates for each place.
+        </div>
+      )}
       <div style={{ padding: "10px 14px", fontSize: 12, color: SLATE, borderTop: `1px solid ${LINE}`, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
         <Check size={13} color={TEAL} strokeWidth={3} /> marks the best in each row. Scroll sideways to see every neighborhood.
       </div>
@@ -1665,7 +1716,7 @@ function WeightsModal({ weights, setWeights, persona, applyPreset, onReset, onCl
 
 /* ---------------- Mortgage ---------------- */
 function MortgageModal({ dp, setDp, credit, setCredit, baseRate, setBaseRate, term, setTerm, rate, budget, rateInfo, onClose }) {
-  const [price, setPrice] = useState(String(budget || 1000000));
+  const [price, setPrice] = useState(String(budget || 750000));
   const rows = [
     { label: "Down payment", value: dp, set: setDp, suffix: "%", min: 0, max: 50, step: 1 },
     { label: "Loan term", value: term, set: setTerm, suffix: " yrs", min: 10, max: 30, step: 5 },
@@ -1697,7 +1748,7 @@ function MortgageModal({ dp, setDp, credit, setCredit, baseRate, setBaseRate, te
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Home price</div>
             <div style={{ position: "relative" }}>
               <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: SLATE, fontSize: 14.5, fontWeight: 600 }}>$</span>
-              <input inputMode="numeric" value={p ? p.toLocaleString("en-US") : ""} placeholder="1,000,000"
+              <input inputMode="numeric" value={p ? p.toLocaleString("en-US") : ""} placeholder="750,000"
                 onChange={(e) => setPrice(e.target.value.replace(/[^0-9]/g, ""))}
                 style={{ ...inputStyle, paddingLeft: 24 }} />
             </div>
