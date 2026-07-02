@@ -1106,10 +1106,11 @@ function RadarView({ scored, dark }) {
   // Use the same key factors as the cards, in a fixed order around the wheel.
   const axes = DIMENSIONS;
   const palette = ["#1FA98F", "#F2B441", "#FF5A4D", "#5B8DEF", "#A877E6", "#E67FB0", "#6BBF59", "#E89B3B"];
-  // Default to the top 3 ranked places so it opens clean.
+  // Default to all towns selected so the full picture shows at once; users can
+  // thin it out with the chips or Clear if it feels busy.
   const [on, setOn] = useState(() => {
     const init = {};
-    scored.forEach((h, i) => { init[h.id] = i < 3; });
+    scored.forEach((h) => { init[h.id] = true; });
     return init;
   });
   const toggle = (id) => setOn((o) => ({ ...o, [id]: !o[id] }));
