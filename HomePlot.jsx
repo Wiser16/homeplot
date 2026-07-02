@@ -1450,37 +1450,30 @@ function CompareView({ scored }) {
                 })}
               </tr>
             ))}
+            {anyDemo && (
+              <>
+                <tr>
+                  <td colSpan={scored.length + 1} style={{ ...rowLabel, background: PAPER, fontSize: 11, fontWeight: 700, letterSpacing: .4, color: SLATE, textTransform: "uppercase", position: "sticky", left: 0, borderTop: `2px solid ${LINE}` }}>
+                    Census context · for information only, not scored
+                  </td>
+                </tr>
+                {[
+                  ["Median household income", (d) => d.medianIncome != null ? `$${d.medianIncome.toLocaleString()}` : "—"],
+                  ["Median age", (d) => d.medianAge != null ? d.medianAge : "—"],
+                  ["Owner / renter", (d) => d.ownerPct != null ? `${d.ownerPct}% / ${d.renterPct}%` : "—"],
+                  ["Median home value", (d) => d.medianHomeValue != null ? `$${d.medianHomeValue.toLocaleString()}` : "—"],
+                ].map(([label, fmt]) => (
+                  <tr key={label}>
+                    <td style={{ ...rowLabel, fontSize: 12.5 }}>{label}</td>
+                    {scored.map((h) => (
+                      <td key={h.id} style={{ ...cell, fontSize: 13, color: INK }}>{demo[h.id] ? fmt(demo[h.id]) : "—"}</td>
+                    ))}
+                  </tr>
+                ))}
+              </>
+            )}
           </tbody>
         </table>
-        {anyDemo && (
-          <table style={{ borderCollapse: "collapse", width: "max-content", minWidth: "100%", marginTop: 4 }}>
-            <thead>
-              <tr>
-                <th style={{ ...rowLabel, background: PAPER, fontSize: 11, fontWeight: 700, letterSpacing: .4, color: SLATE, textTransform: "uppercase" }}>
-                  Census context
-                </th>
-                {scored.map((h) => (
-                  <th key={h.id} style={{ ...cell, background: PAPER, fontSize: 11, color: SLATE, fontWeight: 600 }}>{h.town || h.name}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                ["Median household income", (d) => d.medianIncome != null ? `$${d.medianIncome.toLocaleString()}` : "—"],
-                ["Median age", (d) => d.medianAge != null ? d.medianAge : "—"],
-                ["Owner / renter", (d) => d.ownerPct != null ? `${d.ownerPct}% / ${d.renterPct}%` : "—"],
-                ["Median home value", (d) => d.medianHomeValue != null ? `$${d.medianHomeValue.toLocaleString()}` : "—"],
-              ].map(([label, fmt]) => (
-                <tr key={label}>
-                  <td style={{ ...rowLabel, fontSize: 12.5 }}>{label}</td>
-                  {scored.map((h) => (
-                    <td key={h.id} style={{ ...cell, fontSize: 13, color: INK }}>{demo[h.id] ? fmt(demo[h.id]) : "—"}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
       </div>
       {anyDemo && (
         <div style={{ padding: "8px 14px", fontSize: 11.5, color: SLATE, opacity: .85, lineHeight: 1.5, borderTop: `1px dashed ${LINE}` }}>
