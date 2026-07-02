@@ -636,7 +636,7 @@ export default function NeighborhoodFit() {
             <MapPin size={16} /> Work ZIP
           </div>
           <input value={workZip} onChange={(e) => setWorkZip(e.target.value.replace(/[^0-9]/g, "").slice(0, 5))}
-            inputMode="numeric" placeholder="90245" maxLength={5}
+            inputMode="numeric" placeholder="" maxLength={5}
             style={{ width: 92, fontSize: 15, fontWeight: 700, border: `1px solid ${LINE}`, borderRadius: 8, padding: "7px 10px", color: INK, WebkitTextFillColor: INK, fontFamily: "inherit", background: SURF }} />
           <span style={{ fontSize: 12.5, color: workStatus === "bad" ? CORAL : SLATE }}>
             {workStatus === "loading" ? "Finding…"
