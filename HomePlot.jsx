@@ -410,6 +410,12 @@ export default function NeighborhoodFit() {
         coords: [38.8816, -77.0910], r: [8, 8, 9, 8, 6, 9, 4, 8, 9, 9, 8, 3, 6] },
     ];
     setWorkZip(""); setWorkCoords(null); // national sample: no single work anchor
+    // Open with the Family persona applied, so a new user immediately sees that
+    // rankings reflect priorities (family-first here), with Irvine rising on
+    // schools and safety. Opens in the normal Ranked view (set elsewhere).
+    const fam = PERSONAS.find((p) => p.key === "family");
+    if (fam) { setPersona("family"); setWeights({ ...fam.weights }); }
+    setView("ranked");
     setHoods(picks.map((p, i) => ({
       id: i + 1, town: p.town, state: p.state, name: `${p.town}, ${p.state}`,
       price: p.price, miles: null, note: p.note, ratings: mkRatings(p.r), source: "table", coords: p.coords,
