@@ -1514,11 +1514,33 @@ function AddModal({ initial, budget, onClose, onSave }) {
     if (!town.trim() || !stateCode) return;
     const local = localEstimate(town, budget);
     if (local.source === "table") {
-      setPrice(String(local.estPrice));
+      // Use the curated ratings/note/coords, but pull PRICE from the same AI
+      // lookup as every other town, so all prices come from one consistent
+      // source. Falls back to the table price if the lookup is unreachable.
       setNote((n) => n || local.note);
       setRatings((r) => ({ ...r, ...local.ratings }));
       setCoords(TOWN_COORDS[NORM(town)] || null);
       setSource("table");
+      setAiState("loading");
+      try {
+        const resp = await fetch("/api/lookup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ town: town.trim(), state: stateCode }),
+        });
+        if (resp.ok) {
+          const parsed = await resp.json();
+          if (parsed && parsed.found === true && parsed.estPrice) {
+            setPrice(String(Math.round(parsed.estPrice)));
+          } else {
+            setPrice(String(local.estPrice)); // fallback to curated price
+          }
+        } else {
+          setPrice(String(local.estPrice));
+        }
+      } catch {
+        setPrice(String(local.estPrice)); // offline / unreachable: use table price
+      }
       setAiState("estimated");
       return;
     }
