@@ -611,7 +611,7 @@ export default function NeighborhoodFit() {
               </button>
             )}
             {(hoods.length > 0 || workZip || budget !== "1000000") && (
-              <button className="nf-btn" onClick={resetAll} style={ghostBtn} title="Clear everything and start fresh">
+              <button className="nf-btn" onClick={resetAll} style={{ ...ghostBtn, color: SLATE, opacity: 0.8 }} title="Clear everything and start fresh">
                 <RotateCcw size={16} /> Reset
               </button>
             )}
